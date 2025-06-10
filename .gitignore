@@ -1,0 +1,45 @@
+# Ignore bird and spider folders
+source/datasets_testing/bird/
+source/datasets_testing/spider/
+
+# Keep everything else
+!source/
+!source/datasets_testing/
+!source/datasets_testing/*.py
+!source/datasets_testing/*.md
+
+# Python specific
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual Environment
+.env
+.venv
+env/
+venv/
+ENV/
+
+# IDE specific
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store 
