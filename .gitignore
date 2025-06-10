@@ -31,11 +31,11 @@ wheels/
 *.egg
 
 # Virtual Environment
-.env
-.venv
-env/
-venv/
-ENV/
+# .env
+# .venv
+# env/
+# venv/
+# ENV/
 
 # IDE specific
 .idea/

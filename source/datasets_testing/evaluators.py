@@ -1,11 +1,13 @@
 from premsql.generators import Text2SQLGeneratorHF
 from premsql.datasets import Text2SQLDataset
+from premsql.executors import SQLiteExecutor
+from premsql.evaluator import Text2SQLEvaluator
 
 # Initialize the BirdBench Dataset
 bird_dataset = Text2SQLDataset(
     dataset_name='bird', split="validation", force_download=False,
     dataset_folder=""
-).setup_dataset(num_rows=2)
+).setup_dataset(num_rows=10)
 
 # Initialize the generator
 generator = Text2SQLGeneratorHF(
@@ -15,11 +17,15 @@ generator = Text2SQLGeneratorHF(
     type="test"
 )
 
+executor = SQLiteExecutor()
 # Get the responses
 responses = generator.generate_and_save_results(
     dataset=bird_dataset,
     temperature=0.1,
-    max_new_tokens=256
+    max_new_tokens=256,
+    force=True,
+    executor=executor,
+    max_retries=5
 )
 
 # response = generator.generate_and_save(
@@ -29,8 +35,6 @@ responses = generator.generate_and_save_results(
 #     force=True
 # )
 
-from premsql.executors import SQLiteExecutor
-from premsql.evaluator import Text2SQLEvaluator
 
 # Define the executor
 executor = SQLiteExecutor()

@@ -1,0 +1,22 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "premsql"
+version = "0.1.0"
+description = "PremSQL - Text to SQL generation and evaluation"
+requires-python = ">=3.8"
+dependencies = [
+    "transformers",
+    "torch",
+    "datasets",
+    "sqlparse",
+    "tqdm",
+    "numpy",
+    "pandas"
+]
+
+[tool.setuptools]
+package-dir = {"" = "source"}
+packages = ["premsql"] 
