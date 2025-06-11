@@ -1,6 +1,7 @@
 # Ignore bird and spider folders
-source/datasets_testing/bird/
-source/datasets_testing/spider/
+source/datasets/bird/
+source/datasets/spider/
+source/datasets/
 
 # Keep everything else
 !source/
