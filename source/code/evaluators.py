@@ -6,8 +6,8 @@ from premsql.evaluator import Text2SQLEvaluator
 # Initialize the BirdBench Dataset
 bird_dataset = Text2SQLDataset(
     dataset_name='bird', split="validation", force_download=False,
-    dataset_folder="source/datasets"
-).setup_dataset(num_rows=1)
+    dataset_folder="/Users/kirillnikolaevskii/Desktop/prem/source/datasets"
+).setup_dataset(num_rows=10)
 
 # Initialize the generator
 generator = Text2SQLGeneratorHF(

@@ -9,23 +9,22 @@ bird_dataset = Text2SQLDataset(
     split="validation",
     force_download=False,
     dataset_folder="/Users/kirillnikolaevskii/Desktop/prem/source/datasets"
-).setup_dataset(num_rows=100)
-
+).setup_dataset(num_rows=1034)
 
 # Initialize the API generator with your local endpoint
 generator = Text2SQLGeneratorAPI(
-    model_name="bird",  # Replace with your model name
-    experiment_name="test_api_generators",
+    model_name="premai-io/prem-1B-SQL",  # Use the actual HuggingFace model name
+    experiment_name="prem-1B-SQL-test-spider",  # Updated experiment name to match the model
     type="test",
-    api_base_url="http://localhost:1234/v1"  # Using root endpoint, client will append /chat/completions
+    api_base_url="http://127.0.0.1:8000/v1"  # Using root endpoint, client will append /chat/completions
 )
 
-# Get the responses
+# Get the responses with optimized parameters for this model
 responses = generator.generate_and_save_results(
     dataset=bird_dataset,
-    temperature=0.1,
+    temperature=0.0,  # Low temperature for more deterministic SQL generation
     max_new_tokens=256,
-    force=True,
+    force=False
 )
 
 # Define the executor

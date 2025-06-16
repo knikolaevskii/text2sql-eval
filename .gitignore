@@ -3,11 +3,6 @@ source/datasets/bird/
 source/datasets/spider/
 source/datasets/
 
-# Keep everything else
-!source/
-!source/datasets_testing/
-!source/datasets_testing/*.py
-!source/datasets_testing/*.md
 
 # Python specific
 __pycache__/

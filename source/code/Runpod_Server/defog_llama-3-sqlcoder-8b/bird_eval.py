@@ -5,19 +5,18 @@ from premsql.evaluator import Text2SQLEvaluator
 
 # Initialize the BirdBench Dataset
 bird_dataset = Text2SQLDataset(
-    dataset_name='spider', 
+    dataset_name='bird', 
     split="validation",
     force_download=False,
-    dataset_folder="/Users/kirillnikolaevskii/Desktop/prem/source/datasets"
-).setup_dataset(num_rows=100)
-
+    dataset_folder="../source/datasets"
+).setup_dataset(num_rows=10)
 
 # Initialize the API generator with your local endpoint
 generator = Text2SQLGeneratorAPI(
     model_name="bird",  # Replace with your model name
-    experiment_name="test_api_generators",
+    experiment_name="llama-3-sqlcoder-8b",
     type="test",
-    api_base_url="http://localhost:1234/v1"  # Using root endpoint, client will append /chat/completions
+    api_base_url="http://127.0.0.1:8001/v1"  # Using root endpoint, client will append /chat/completions
 )
 
 # Get the responses
