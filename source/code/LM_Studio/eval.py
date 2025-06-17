@@ -1,5 +1,5 @@
-from utils import Text2SQLGeneratorAPI
-from utils.datasets import Text2SQLDataset
+from utils.custom_generators import Text2SQLGeneratorAPI
+from utils.custom_datasets import Text2SQLDataset
 from premsql.executors import SQLiteExecutor
 from premsql.evaluator import Text2SQLEvaluator
 
@@ -9,7 +9,7 @@ bird_dataset = Text2SQLDataset(
     split="validation",
     force_download=False,
     dataset_folder="source/datasets"
-).setup_dataset(num_rows=100)
+).setup_dataset(num_rows=1)
 
 
 # Initialize the API generator with your local endpoint

@@ -4,7 +4,8 @@ import sqlite3
 from abc import ABC, abstractmethod
 from copy import deepcopy
 from pathlib import Path
-from typing import Optional, Sequence, Union
+from typing import Dict, List, Optional, Sequence, Union
+import numpy as np
 
 from tqdm.auto import tqdm
 
@@ -47,64 +48,56 @@ class Text2SQLBaseInstance:
 
     def __getitem__(self, idx: int) -> dict:
         return dict(**self.dataset[idx])
-
-    def schema_prompt(self, db_path: str) -> str:
-        schemas = {}
-        conn = sqlite3.connect(db_path)
-        cursor = conn.cursor()
-        cursor.execute("SELECT name FROM sqlite_master WHERE type='table';")
-        tables = cursor.fetchall()
-
-        for table in tables:
-            table_name = table[0]
-            if table_name == "sqlite_sequence":
-                continue
-            cursor.execute(
-                f"SELECT sql FROM sqlite_master WHERE type='table' AND name='{table_name}';"
-            )
-            create_table_sql = cursor.fetchone()
-            if create_table_sql:
-                schemas[table_name] = create_table_sql[0]
-            else:
-                schemas[table_name] = "Schema does not exist"
-
-        schema_prompt = "\n".join(
-            schemas[table[0]] for table in tables if table[0] != "sqlite_sequence"
-        )
-        return schema_prompt
-
-    def additional_prompt(self, prompt: Optional[str] = None):
-        return "" if prompt is None else f"# Additional Knowledge:\n{prompt}"
-
-    def add_few_shot_examples(self, db_id: str, k: int = 3) -> str:
-        assert k > 0, "k should be greater than 0"
-        db_fewshot_prompts_map = get_random_few_shot_prompts(
-            dataset=self.dataset, num_few_shot=k
-        )
-        return db_fewshot_prompts_map[db_id]
+    
+    def to_prompt_schema(
+        md: Dict[str, List[Dict[str, str]]], seed: Optional[int] = None
+    ) -> str:
+        
+        md_create = ""
+        table_names = list(md.keys())
+        if seed:
+            np.random.seed(seed)
+            np.random.shuffle(table_names)
+        for table in table_names:
+            md_create += f"CREATE TABLE {table} (\n"
+            columns = md[table]
+            if seed:
+                np.random.seed(seed)
+                np.random.shuffle(columns)
+            for i, column in enumerate(columns):
+                col_name = column["column_name"]
+                # if column name has spaces, wrap it in double quotes
+                if " " in col_name:
+                    col_name = f'"{col_name}"'
+                dtype = column["data_type"]
+                col_desc = column.get("column_description", "").replace("\n", " ")
+                if col_desc:
+                    col_desc = f" --{col_desc}"
+                if i < len(columns) - 1:
+                    md_create += f"  {col_name} {dtype},{col_desc}\n"
+                else:
+                    # avoid the trailing comma for the last line
+                    md_create += f"  {col_name} {dtype}{col_desc}\n"
+            md_create += ");\n"
+        return md_create
 
     def apply_prompt(
         self,
-        num_fewshot: Optional[int] = None,
-        prompt_template: Optional[str] = None,
+        prompt_template: str = "./prompts/new_prompt.md",
+        data_shema_folder: str = "./data/wikisql/test_wiki_sql_metadata.json",
     ):
-        prompt_template = (
-            BASE_TEXT2SQL_PROMPT if prompt_template is None else prompt_template
-        )
+        with open(data_shema_folder, "r") as f:
+            md = json.load(f)
+        schemas = self.to_prompt_schema(md)
+
+
+        with open(prompt_template, "r") as f:
+            prompt_template = f.read()
+
+        
         for blob in tqdm(self.dataset, total=len(self.dataset), desc="Applying prompt"):
-            few_shot_prompt = (
-                ""
-                if num_fewshot is None
-                else self.add_few_shot_examples(db_id=blob["db_id"], k=num_fewshot)
-            )
             final_prompt = prompt_template.format(
-                schemas=self.schema_prompt(blob["db_path"]),
-                additional_knowledge=(
-                    ""
-                    if "knowledge" not in blob
-                    else self.additional_prompt(blob["knowledge"])
-                ),
-                few_shot_examples=few_shot_prompt,
+                schemas=schemas,
                 question=blob["question"],
             )
             blob["prompt"] = final_prompt
@@ -225,8 +218,10 @@ class Text2SQLBaseDataset(ABC):
         dataset_path: Union[str, Path],
         database_folder_name: str,
         json_file_name: str,
-        hf_token: Optional[str] = None,
+        data_shema_folder: str = "./data/wikisql/data_schema",
+        prompt_template : str = "source/prompts/new_prompt.md",
     ):
+        self.prompt_template = prompt_template
         self.dataset_path = Path(dataset_path)
         self.database_folder_name = database_folder_name
         self.dataset = json.load(open(self.dataset_path / json_file_name, "r"))
@@ -234,7 +229,6 @@ class Text2SQLBaseDataset(ABC):
             "Split should be either train or validation"
         )
         self.split = split
-        self.hf_token = hf_token if hf_token else os.environ.get("HF_TOKEN", None)
 
     @property
     def raw_dataset(self):
@@ -249,7 +243,6 @@ class Text2SQLBaseDataset(ABC):
         self,
         filter_by: Optional[tuple] = None,
         num_rows: Optional[int] = None,
-        num_fewshot: Optional[int] = None,
         model_name_or_path: Optional[str] = None,
         tokenize: Optional[bool] = False,
         prompt_template: Optional[str] = BASE_TEXT2SQL_PROMPT,
@@ -269,7 +262,7 @@ class Text2SQLBaseDataset(ABC):
             self.dataset = self.dataset[:num_rows]
 
         self.dataset = Text2SQLBaseInstance(dataset=self.dataset).apply_prompt(
-            num_fewshot=num_fewshot, prompt_template=prompt_template
+            prompt_template=self.prompt_template
         )
         return SupervisedDatasetForTraining(
             dataset=self.dataset,
@@ -283,40 +276,3 @@ class Text2SQLBaseDataset(ABC):
 
     def __getitem__(self, idx):
         return dict(**self.dataset[idx])
-
-
-class StandardDataset(Text2SQLBaseDataset):
-    def __init__(
-        self,
-        split: str,
-        dataset_path: Union[str, Path],
-        database_folder_name: str,
-        json_file_name: str,
-        hf_token: Optional[str] = None,
-    ):
-        super().__init__(
-            split=split,
-            dataset_path=dataset_path,
-            database_folder_name=database_folder_name,
-            json_file_name=json_file_name,
-            hf_token=hf_token,
-        )
-
-    def setup_dataset(
-        self,
-        filter_by: tuple | None = None,
-        num_rows: int | None = None,
-        num_fewshot: int | None = None,
-        model_name_or_path: str | None = None,
-        prompt_template: str | None = None,
-        tokenize: bool | None = False 
-    ):
-        logger.info("Setting up Dataset")
-        return super().setup_dataset(
-            filter_by=filter_by,
-            num_rows=num_rows,
-            model_name_or_path=model_name_or_path,
-            tokenize=tokenize,
-            prompt_template=prompt_template,
-            num_fewshot=num_fewshot
-        )

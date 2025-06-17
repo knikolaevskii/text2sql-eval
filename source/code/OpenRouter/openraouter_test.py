@@ -5,7 +5,7 @@ from premsql.evaluator import Text2SQLEvaluator
 
 # Import your custom OpenRouter generator
 from premsql.generators import Text2SQLGeneratorOpenRouter
-from utils import Text2SQLGeneratorOpenRouter
+from utils.custom_generators import Text2SQLGeneratorOpenRouter
 
 # Set your OpenRouter API key (or set as environment variable OPENROUTER_API_KEY)
 # os.environ["OPENROUTER_API_KEY"] = "your_api_key_here"

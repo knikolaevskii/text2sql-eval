@@ -1,11 +1,10 @@
 from pathlib import Path
 from typing import Optional, Union
 
-from .base import StandardDataset, Text2SQLBaseDataset
+from .base import Text2SQLBaseDataset
 from .real.bird import BirdDataset
-from .real.domains import DomainsDataset
 from .real.spider import SpiderUnifiedDataset
-from .synthetic.gretel import GretelAIDataset
+from .real.wikisql import WikiSQLDataset
 from premsql.utils import get_accepted_filters
 
 
@@ -15,24 +14,21 @@ class Text2SQLDataset:
         dataset_name: str,
         split: str,
         dataset_folder: Optional[Union[str, Path]] = "./data",
-        hf_token: Optional[str] = None,
-        force_download: Optional[bool] = False,
+        prompt_template: str = "source/prompts/new_prompt.md",
         **kwargs
     ):
-        assert dataset_name in ["bird", "domains", "spider", "gretel"], ValueError(
-            "Dataset should be one of bird, domains, spider, gretel"
+        assert dataset_name in ["bird", "spider", "wikisql"], ValueError(
+            "Dataset should be one of bird, spider, wikisql"
         )
         dataset_mapping = {
             "bird": BirdDataset,
-            "domains": DomainsDataset,
             "spider": SpiderUnifiedDataset,
-            "gretel": GretelAIDataset,
+            "wikisql": WikiSQLDataset,
         }
         self._text2sql_dataset: Text2SQLBaseDataset = dataset_mapping[dataset_name](
             split=split,
             dataset_folder=dataset_folder,
-            hf_token=hf_token,
-            force_download=force_download,
+            prompt_template=prompt_template,
             **kwargs
         )
 
