@@ -46,6 +46,7 @@ class BirdDataset(Text2SQLBaseDataset):
             database_folder_name=database_folder_name,
             json_file_name=json_file_name,
             hf_token=hf_token,
+            data_schema_folder="/source/datasets/wikisql/test_wiki_sql_metadata.json",
         )
         logger.info("Loaded Bird Dataset")
 

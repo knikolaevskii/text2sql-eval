@@ -49,6 +49,7 @@ class Text2SQLBaseInstance:
     def __getitem__(self, idx: int) -> dict:
         return dict(**self.dataset[idx])
     
+    @staticmethod
     def to_prompt_schema(
         md: Dict[str, List[Dict[str, str]]], seed: Optional[int] = None
     ) -> str:
@@ -84,17 +85,16 @@ class Text2SQLBaseInstance:
     def apply_prompt(
         self,
         prompt_template: str = "./prompts/new_prompt.md",
-        data_shema_folder: str = "./data/wikisql/test_wiki_sql_metadata.json",
+        data_schema_folder: str = "/Users/kirillnikolaevskii/Desktop/prem/source/datasets/wikisql/test_wiki_sql_metadata.json",
     ):
-        with open(data_shema_folder, "r") as f:
+        print(data_schema_folder)
+        with open(data_schema_folder, "r") as f:
             md = json.load(f)
         schemas = self.to_prompt_schema(md)
-
 
         with open(prompt_template, "r") as f:
             prompt_template = f.read()
 
-        
         for blob in tqdm(self.dataset, total=len(self.dataset), desc="Applying prompt"):
             final_prompt = prompt_template.format(
                 schemas=schemas,
@@ -218,13 +218,16 @@ class Text2SQLBaseDataset(ABC):
         dataset_path: Union[str, Path],
         database_folder_name: str,
         json_file_name: str,
-        data_shema_folder: str = "./data/wikisql/data_schema",
-        prompt_template : str = "source/prompts/new_prompt.md",
+        data_schema_folder: str = "/source/datasets/wikisql/test_wiki_sql_metadata.json",
+        prompt_template: str = "source/prompts/new_prompt.md",
+        hf_token: Optional[str] = None,
     ):
         self.prompt_template = prompt_template
         self.dataset_path = Path(dataset_path)
         self.database_folder_name = database_folder_name
         self.dataset = json.load(open(self.dataset_path / json_file_name, "r"))
+        self.data_schema_folder = data_schema_folder
+        self.hf_token = hf_token
         assert split in ["train", "validation", "test"], ValueError(
             "Split should be either train or validation"
         )
@@ -243,9 +246,10 @@ class Text2SQLBaseDataset(ABC):
         self,
         filter_by: Optional[tuple] = None,
         num_rows: Optional[int] = None,
+        num_fewshot: Optional[int] = None,
         model_name_or_path: Optional[str] = None,
         tokenize: Optional[bool] = False,
-        prompt_template: Optional[str] = BASE_TEXT2SQL_PROMPT,
+        prompt_template: Optional[str] = None,
     ):
         for content in self.dataset:
             content["db_path"] = str(
@@ -261,8 +265,12 @@ class Text2SQLBaseDataset(ABC):
         if num_rows:
             self.dataset = self.dataset[:num_rows]
 
+        # Use the provided prompt_template or fall back to the instance's prompt_template
+        template_to_use = prompt_template or self.prompt_template
+
         self.dataset = Text2SQLBaseInstance(dataset=self.dataset).apply_prompt(
-            prompt_template=self.prompt_template
+            prompt_template=template_to_use,
+            data_schema_folder=self.data_schema_folder
         )
         return SupervisedDatasetForTraining(
             dataset=self.dataset,
