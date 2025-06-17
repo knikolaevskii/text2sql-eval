@@ -93,13 +93,15 @@ class Text2SQLBaseInstance:
 
         md = md["table_metadata"]
 
-        schemas = self.to_prompt_schema(md)
 
         
         with open(prompt_template, "r") as f:
             prompt_template_content = f.read()
 
         for blob in tqdm(self.dataset, total=len(self.dataset), desc="Applying prompt"):
+            db_id = blob["db_id"]
+            single_table_md = {db_id: md[db_id]}
+            schemas = self.to_prompt_schema(single_table_md)
             final_prompt = prompt_template_content.format(
                 db_type="SQLite",  # or whatever database type you're using
                 user_question=blob["question"],
