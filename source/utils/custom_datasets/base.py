@@ -85,22 +85,32 @@ class Text2SQLBaseInstance:
     def apply_prompt(
         self,
         prompt_template: str = "./prompts/new_prompt.md",
-        data_schema_folder: str = "/Users/kirillnikolaevskii/Desktop/prem/source/datasets/wikisql/test_wiki_sql_metadata.json",
+        data_schema_file: str = "./data/wikisql/test_wiki_sql_metadata.json",
     ):
-        print(data_schema_folder)
-        with open(data_schema_folder, "r") as f:
+        print(f"Loading schema from: {data_schema_file}")
+        with open(data_schema_file, "r") as f:
             md = json.load(f)
+
+        md = md["table_metadata"]
+
         schemas = self.to_prompt_schema(md)
 
+        
         with open(prompt_template, "r") as f:
-            prompt_template = f.read()
+            prompt_template_content = f.read()
 
         for blob in tqdm(self.dataset, total=len(self.dataset), desc="Applying prompt"):
-            final_prompt = prompt_template.format(
+            final_prompt = prompt_template_content.format(
+                db_type="SQLite",  # or whatever database type you're using
+                user_question=blob["question"],
+                question=blob["question"],  # for backward compatibility
                 schemas=schemas,
-                question=blob["question"],
+                table_metadata_string=schemas,  # same as schemas
+                instructions="",  # add specific instructions if needed
+                k_shot_prompt="",  # add few-shot examples if needed
             )
             blob["prompt"] = final_prompt
+            print(blob["prompt"])
         return self.dataset
 
 
@@ -218,7 +228,7 @@ class Text2SQLBaseDataset(ABC):
         dataset_path: Union[str, Path],
         database_folder_name: str,
         json_file_name: str,
-        data_schema_folder: str = "/source/datasets/wikisql/test_wiki_sql_metadata.json",
+        data_schema_file: str = "./data/wikisql/test_wiki_sql_metadata.json",
         prompt_template: str = "source/prompts/new_prompt.md",
         hf_token: Optional[str] = None,
     ):
@@ -226,7 +236,7 @@ class Text2SQLBaseDataset(ABC):
         self.dataset_path = Path(dataset_path)
         self.database_folder_name = database_folder_name
         self.dataset = json.load(open(self.dataset_path / json_file_name, "r"))
-        self.data_schema_folder = data_schema_folder
+        self.data_schema_file = data_schema_file
         self.hf_token = hf_token
         assert split in ["train", "validation", "test"], ValueError(
             "Split should be either train or validation"
@@ -270,7 +280,7 @@ class Text2SQLBaseDataset(ABC):
 
         self.dataset = Text2SQLBaseInstance(dataset=self.dataset).apply_prompt(
             prompt_template=template_to_use,
-            data_schema_folder=self.data_schema_folder
+            data_schema_file=self.data_schema_file
         )
         return SupervisedDatasetForTraining(
             dataset=self.dataset,

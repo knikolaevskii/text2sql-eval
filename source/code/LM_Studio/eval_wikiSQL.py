@@ -9,4 +9,4 @@ wiki_dataset = Text2SQLDataset(
     dataset_folder="source/datasets",
     prompt_template="source/prompts/new_prompt.md",
     data_schema_file="source/datasets/wikisql/test_wiki_sql_metadata.json"  # Add this line
-).setup_dataset(num_rows=100)
+).setup_dataset(num_rows=1)

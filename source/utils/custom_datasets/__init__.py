@@ -14,7 +14,7 @@ class Text2SQLDataset:
         dataset_name: str,
         split: str,
         dataset_folder: Optional[Union[str, Path]] = "./data",
-        prompt_template: str = "haha",
+        prompt_template: str = "source/prompts/new_prompt.md",
         **kwargs
     ):
         assert dataset_name in ["bird", "spider", "wikisql"], ValueError(

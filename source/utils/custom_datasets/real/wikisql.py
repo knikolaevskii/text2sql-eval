@@ -12,7 +12,7 @@ class WikiSQLDataset(Text2SQLBaseDataset):
         self,
         split: str,
         dataset_folder: Optional[Union[str, Path]] = "./data",
-        data_schema_folder: str = "./data/wikisql/data_schema",
+        data_schema_file: str = None,
         prompt_template: str = "source/prompts/new_prompt.md",
         hf_token: Optional[str] = None,
     ):
@@ -29,12 +29,16 @@ class WikiSQLDataset(Text2SQLBaseDataset):
         else:
             raise ValueError("Split should be test")
 
+        # Set default data_schema_file if not provided
+        if data_schema_file is None:
+            data_schema_file = str(wikisql_folder / "test_wiki_sql_metadata.json")
+
         super().__init__(
             split=split,
             dataset_path=wikisql_folder,
             database_folder_name="database",
             json_file_name=json_file_name,
-            data_schema_folder=data_schema_folder,
+            data_schema_file=data_schema_file,
             prompt_template=prompt_template,
             hf_token=hf_token,
         )
