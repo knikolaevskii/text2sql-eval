@@ -47,7 +47,8 @@ class Text2SQLDataset:
         num_fewshot: Optional[int] = None,
         model_name_or_path: Optional[str] = None,
         prompt_template: Optional[str] = None,
-        tokenize: Optional[bool] = False
+        tokenize: Optional[bool] = False,
+        custom_db_path: Optional[str] = None
     ):
         return self._text2sql_dataset.setup_dataset(
             filter_by=filter_by,
@@ -56,6 +57,7 @@ class Text2SQLDataset:
             model_name_or_path=model_name_or_path,
             prompt_template=prompt_template,
             tokenize=tokenize,
+            custom_db_path=custom_db_path
         )
 
 

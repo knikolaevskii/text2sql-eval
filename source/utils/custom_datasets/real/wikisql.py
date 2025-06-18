@@ -56,10 +56,13 @@ class WikiSQLDataset(Text2SQLBaseDataset):
         num_fewshot: int | None = None,
         model_name_or_path: str | None = None,
         prompt_template: str | None = None,
-        tokenize: bool | None = False
+        tokenize: bool | None = False,
+        custom_db_path: str | None = None 
     ):
         logger.info("Setting up WikiSQL Dataset")
-        return super().setup_dataset(
+    
+        # Call parent setup
+        result = super().setup_dataset(
             filter_by=filter_by,
             num_rows=num_rows,
             num_fewshot=num_fewshot,
@@ -67,3 +70,10 @@ class WikiSQLDataset(Text2SQLBaseDataset):
             tokenize=tokenize,
             prompt_template=prompt_template,
         )
+        
+        # Override database paths if custom path provided
+        if custom_db_path:
+            for content in self.dataset:
+                content["db_path"] = custom_db_path
+        
+        return result

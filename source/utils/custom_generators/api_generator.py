@@ -1,7 +1,7 @@
 import os
 from typing import Optional
 
-from premsql.generators.base import Text2SQLGeneratorBase
+from utils.custom_generators.base import Text2SQLGeneratorBase
 
 try:
     from openai import OpenAI
@@ -75,7 +75,7 @@ class Text2SQLGeneratorAPI(Text2SQLGeneratorBase):
             **kwargs,
             **{"temperature": temperature, "max_tokens": max_tokens},
         }
-        print(prompt)
+
         try:
             completion = (
                 self.client.completions.create(
