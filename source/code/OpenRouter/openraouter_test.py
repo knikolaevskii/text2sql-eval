@@ -1,10 +1,10 @@
 import os
 from premsql.datasets import Text2SQLDataset
 from premsql.executors import SQLiteExecutor
-from premsql.evaluator import Text2SQLEvaluator
+from utils.custom_evaluator import Text2SQLEvaluator
 
 # Import your custom OpenRouter generator
-from premsql.generators import Text2SQLGeneratorOpenRouter
+# from premsql.generators import Text2SQLGeneratorOpenRouter
 from utils.custom_generators import Text2SQLGeneratorOpenRouter
 
 # Set your OpenRouter API key (or set as environment variable OPENROUTER_API_KEY)
@@ -15,7 +15,7 @@ bird_dataset = Text2SQLDataset(
     dataset_name='bird', 
     split="validation", 
     force_download=False,
-    dataset_folder=""
+    dataset_folder="source/datasets"
 ).setup_dataset(num_rows=1)
 
 
@@ -40,7 +40,7 @@ responses = generator.generate_and_save_results(
     postprocess=True
 )
 
-print(f"Generated {len(responses)} responses")
+# print(f"Generated {len(responses)} responses")
 
 # Define the evaluator
 evaluator = Text2SQLEvaluator(
@@ -60,10 +60,10 @@ print("Evaluation Results:")
 print(results)
 
 # Optional: Print some example responses
-print("\nSample responses:")
-for i, response in enumerate(responses[:3]):  # Show first 3 responses
-    print(f"\nExample {i+1}:")
-    print(f"Question: {response.get('question', 'N/A')}")
-    print(f"Generated SQL: {response.get('generated', 'N/A')}")
-    if 'evidence' in response:
-        print(f"Evidence: {response['evidence']}")
+# print("\nSample responses:")
+# for i, response in enumerate(responses[:3]):  # Show first 3 responses
+#     print(f"\nExample {i+1}:")
+#     print(f"Question: {response.get('question', 'N/A')}")
+#     print(f"Generated SQL: {response.get('generated', 'N/A')}")
+#     if 'evidence' in response:
+#         print(f"Evidence: {response['evidence']}")

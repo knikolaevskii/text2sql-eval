@@ -4,6 +4,7 @@ from .custom_datasets import Text2SQLDataset
 from .custom_datasets.real.bird import BirdDataset
 from .custom_datasets.real.spider import SpiderUnifiedDataset
 from .custom_datasets.real.wikisql import WikiSQLDataset
+from .custom_evaluator.base import Text2SQLEvaluator
 
 __all__ = [
     "Text2SQLGeneratorAPI",
@@ -13,4 +14,5 @@ __all__ = [
     "BirdDataset",
     "DomainsDataset",
     "Text2SQLDataset",
+    "Text2SQLEvaluator"
 ]

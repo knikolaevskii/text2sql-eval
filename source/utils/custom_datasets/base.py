@@ -87,7 +87,7 @@ class Text2SQLBaseInstance:
         prompt_template: str = "./prompts/new_prompt.md",
         data_schema_file: str = "./data/wikisql/test_wiki_sql_metadata.json",
     ):
-        print(f"Loading schema from: {data_schema_file}")
+        # print(f"Loading schema from: {data_schema_file}")
         with open(data_schema_file, "r") as f:
             md = json.load(f)
 
@@ -112,7 +112,7 @@ class Text2SQLBaseInstance:
                 k_shot_prompt="",  # add few-shot examples if needed
             )
             blob["prompt"] = final_prompt
-            print(blob["prompt"])
+            # print(blob["prompt"])
         return self.dataset
 
 

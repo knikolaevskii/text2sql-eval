@@ -112,7 +112,17 @@ class Text2SQLGeneratorBase(ABC):
         else:
             sql_statement = output_string
 
-        return sqlparse.format(sql_statement.split("# SQL:")[-1].strip())
+        # Format the SQL and clean it up
+        formatted_sql = sqlparse.format(sql_statement.split("# SQL:")[-1].strip())
+        print(1, formatted_sql)
+        # Remove any trailing whitespace
+        formatted_sql = formatted_sql.strip()
+        
+        # Add semicolon if it doesn't end with one
+        if not formatted_sql.endswith(';'):
+            formatted_sql += ';'
+        print(2, formatted_sql)
+        return formatted_sql
 
     def load_results_from_folder(self):
         item_names = [item.name for item in self.experiment_path.iterdir()]
