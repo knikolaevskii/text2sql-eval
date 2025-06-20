@@ -1,5 +1,5 @@
 from utils.custom_generators import Text2SQLGeneratorAPI
-from utils.custom_datasets import Text2SQLDataset
+from utils.custom_datasets_wikisql import Text2SQLDataset
 from premsql.executors import SQLiteExecutor
 from premsql.evaluator import Text2SQLEvaluator
 

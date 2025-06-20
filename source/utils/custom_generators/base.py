@@ -198,5 +198,5 @@ class Text2SQLGeneratorBase(ABC):
             print(f"First try failed: {first_try_failed}")
             print(f"Managed to correct: {managed_to_correct}")
             print(f"Correction percentage: {percentage:.1f}%")
-        
+            
         return to_dump

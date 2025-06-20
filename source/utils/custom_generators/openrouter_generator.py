@@ -34,6 +34,7 @@ class Text2SQLGeneratorOpenRouter(Text2SQLGeneratorBase):
         type: str,
         experiment_folder: Optional[str] = None,
         openrouter_api_key: Optional[str] = None,
+        data_base_type: Optional[str] = "SQLite",
     ):
         self._api_key = openrouter_api_key or os.environ.get("OPENROUTER_API_KEY")
         if not self._api_key:
@@ -42,6 +43,7 @@ class Text2SQLGeneratorOpenRouter(Text2SQLGeneratorBase):
         # Map short model names to full OpenRouter model IDs
         self.model_name = self.MODEL_MAPPING.get(model_name, model_name)
         self.original_model_name = model_name
+        self.data_base_type = data_base_type
         
         super().__init__(
             experiment_folder=experiment_folder,
@@ -100,6 +102,12 @@ class Text2SQLGeneratorOpenRouter(Text2SQLGeneratorBase):
             "max_tokens": max_tokens,
             **kwargs  # Allow additional parameters to be passed through
         }
+
+        db_type = kwargs.get('db_type', 'sqlite')
+        if db_type == 'sqlite':
+            system_prompt = "You are an expert SQLite developer. Your role is to convert user questions into accurate, efficient SQL queries based on the provided database schema. Always return only the SQL query without any explanations or formatting."
+        else:
+            system_prompt = "You are an expert PostgreSQL developer. Your role is to convert user questions into accurate, efficient SQL queries based on the provided database schema. Always return only the SQL query without any explanations or formatting."
         
         try:
             # Make API call to OpenRouter
@@ -108,7 +116,7 @@ class Text2SQLGeneratorOpenRouter(Text2SQLGeneratorBase):
                 messages=[
                     {
                         "role": "system", 
-                        "content": "You are an expert SQLite developer. Your role is to convert user questions into accurate, efficient SQL queries based on the provided database schema. Always return only the SQL query without any explanations or formatting."
+                        "content": system_prompt
                     },
                     {"role": "user", "content": prompt}
                 ],

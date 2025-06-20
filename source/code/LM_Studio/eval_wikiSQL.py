@@ -1,5 +1,5 @@
 from utils.custom_generators import Text2SQLGeneratorAPI
-from utils.custom_datasets import Text2SQLDataset
+from utils.custom_datasets_wikisql import Text2SQLDataset
 from premsql.executors import SQLiteExecutor
 from premsql.evaluator import Text2SQLEvaluator
 
@@ -85,7 +85,7 @@ generator = Text2SQLGeneratorAPI(
     model_name="some",  # Replace with your model name
     experiment_name="test_api_generators",
     type="test",
-    api_base_url="http://localhost:1234/v1",  # Using root endpoint, client will append /chat/completions
+    api_base_url="http://localhost:1234/v1",  # Using root endpoint, client will append /completions
 )
 
 # Get the responses

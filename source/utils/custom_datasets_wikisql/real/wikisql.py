@@ -2,7 +2,7 @@ from pathlib import Path
 from typing import Optional, Union
 
 from premsql.logger import setup_console_logger
-from utils.custom_datasets.base import Text2SQLBaseDataset
+from utils.custom_datasets_wikisql.base import Text2SQLBaseDataset
 
 logger = setup_console_logger("[WIKISQL-DATASET]")
 

@@ -102,13 +102,14 @@ class Text2SQLBaseInstance:
             db_id = blob["db_id"]
             single_table_md = {db_id: md[db_id]}
             schemas = self.to_prompt_schema(single_table_md)
+            instructions = blob.get("instructions", "")
             final_prompt = prompt_template_content.format(
                 db_type="SQLite",  # or whatever database type you're using
                 user_question=blob["question"],
                 question=blob["question"],  # for backward compatibility
                 schemas=schemas,
                 table_metadata_string=schemas,  # same as schemas
-                instructions="",  # add specific instructions if needed
+                instructions=instructions,  # add specific instructions if needed
                 k_shot_prompt="",  # add few-shot examples if needed
             )
             blob["prompt"] = final_prompt
