@@ -1,5 +1,5 @@
 from utils.custom_generators import Text2SQLGeneratorAPI
-from utils.custom_datasets_wikisql import Text2SQLDataset
+from utils.regular_datasets import Text2SQLDataset
 from premsql.executors import SQLiteExecutor
 from premsql.evaluator import Text2SQLEvaluator
 
@@ -8,8 +8,8 @@ bird_dataset = Text2SQLDataset(
     dataset_name='spider',
     split="validation",
     force_download=False,
-    dataset_folder="source/datasets"
-).setup_dataset(num_rows=1)
+    dataset_folder="source/datasets",
+).setup_dataset(num_rows=2, prompt_template="source/prompts/spider_prompt.md")
 
 
 # Initialize the API generator with your local endpoint

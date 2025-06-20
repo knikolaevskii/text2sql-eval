@@ -34,8 +34,9 @@ class Text2SQLGeneratorOpenRouter(Text2SQLGeneratorBase):
         type: str,
         experiment_folder: Optional[str] = None,
         openrouter_api_key: Optional[str] = None,
-        data_base_type: Optional[str] = "SQLite",
+        data_base_type: Optional[str] = "sqlite",
     ):
+        self.data_base_type = data_base_type
         self._api_key = openrouter_api_key or os.environ.get("OPENROUTER_API_KEY")
         if not self._api_key:
             raise ValueError("OpenRouter API key must be provided either as parameter or OPENROUTER_API_KEY environment variable")
@@ -103,12 +104,14 @@ class Text2SQLGeneratorOpenRouter(Text2SQLGeneratorBase):
             **kwargs  # Allow additional parameters to be passed through
         }
 
-        db_type = kwargs.get('db_type', 'sqlite')
-        if db_type == 'sqlite':
+        if self.data_base_type == 'sqlite':
             system_prompt = "You are an expert SQLite developer. Your role is to convert user questions into accurate, efficient SQL queries based on the provided database schema. Always return only the SQL query without any explanations or formatting."
-        else:
+        elif self.data_base_type == 'postgresql':
             system_prompt = "You are an expert PostgreSQL developer. Your role is to convert user questions into accurate, efficient SQL queries based on the provided database schema. Always return only the SQL query without any explanations or formatting."
+        else:
+            raise ValueError(f"Invalid database type: {self.data_base_type}")
         
+        print("This prompt is",system_prompt)
         try:
             # Make API call to OpenRouter
             completion = self.client.chat.completions.create(

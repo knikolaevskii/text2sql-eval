@@ -11,15 +11,16 @@ spider_dataset = Text2SQLDataset(
     split="validation", 
     force_download=False,
     dataset_folder="source/datasets",
-).setup_dataset(num_rows=20, prompt_template="source/prompts/spider_prompt.md")
+).setup_dataset(num_rows=1034, prompt_template="source/prompts/spider_prompt.md")
 
 
 # Initialize the OpenRouter generator
 generator = Text2SQLGeneratorOpenRouter(
     model_name="gpt-4o-mini",  # You can use any model from the mapping or full OpenRouter model ID
-    experiment_name="spider_openrouter_generators",
+    experiment_name="spider_gpt_o4_mini_openrouter_generators",
     type="test",
     openrouter_api_key="***REMOVED***",  # Will use OPENROUTER_API_KEY env var if None
+    data_base_type="sqlite" # or postgresql
 )
 
 # Initialize executor

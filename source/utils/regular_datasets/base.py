@@ -88,7 +88,7 @@ class Text2SQLBaseInstance:
         num_fewshot: Optional[int] = None,
         prompt_template: Optional[str] = None,
     ):
-        print("opening this file",prompt_template)
+        # print("opening this file",prompt_template)
         if prompt_template is not None:
             with open(prompt_template, "r") as f:
                 prompt_template_content = f.read()
@@ -96,7 +96,7 @@ class Text2SQLBaseInstance:
         prompt_template_content = (
             BASE_TEXT2SQL_PROMPT if prompt_template is None else prompt_template_content
         )
-        print("This prompt is", prompt_template_content)
+        
         for blob in tqdm(self.dataset, total=len(self.dataset), desc="Applying prompt"):
             few_shot_prompt = (
                 ""

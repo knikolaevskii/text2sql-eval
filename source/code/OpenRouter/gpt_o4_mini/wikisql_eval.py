@@ -15,7 +15,7 @@ wiki_dataset = Text2SQLDataset(
 # Initialize the OpenRouter generator
 generator = Text2SQLGeneratorOpenRouter(
     model_name="gpt-4o-mini",  # You can use any model from the mapping or full OpenRouter model ID
-    experiment_name="wikisql_openrouter_generators",
+    experiment_name="wikisql_gpt_o4_mini_openrouter_generators",
     type="test",
     openrouter_api_key="***REMOVED***",  # Will use OPENROUTER_API_KEY env var if None
 )
