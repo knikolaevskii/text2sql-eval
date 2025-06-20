@@ -69,7 +69,7 @@ class Text2SQLEvaluator:
         model_responses: list[dict],
         filter_by: Optional[str] = None,
         num_iterations: Optional[int] = 10,
-        meta_time_out: Optional[int] = 10,  # change it later to 1000
+        meta_time_out: Optional[int] = 10,
         debug: Optional[bool] = False,
     ) -> dict:
         data_with_results = []
@@ -95,7 +95,9 @@ class Text2SQLEvaluator:
             filter_values = {response[filter_by] for response in data_with_results}
             total_responses = len(data_with_results)
             overall_metric = 0.0
-            overall_error_count = 0
+            overall_db_errors = 0
+            overall_logic_errors = 0
+            overall_successes = 0
 
             for value in filter_values:
                 filtered_responses = [
@@ -114,14 +116,18 @@ class Text2SQLEvaluator:
                 # Weight the overall metrics by the number of responses in this group
                 weight = len(filtered_responses) / total_responses
                 overall_metric += metric_result[f"{metric_name}_percentage"] * weight
-                overall_error_count += metric_result["error_count"]
+                overall_db_errors += metric_result["db_error_count"]
+                overall_logic_errors += metric_result["logic_error_count"]
+                overall_successes += metric_result["success_count"]
 
             execution_result["overall"] = {
                 f"{metric_name}_percentage": overall_metric,
-                "total_queries": total_responses,
-                "error_count": overall_error_count,
-                "success_count": total_responses - overall_error_count,
-                "error_rate": (overall_error_count / total_responses) * 100 if total_responses > 0 else 0
+                "success_count": overall_successes,
+                "logic_error_count": overall_logic_errors,
+                "db_error_count": overall_db_errors,
+                "success_percentage": (overall_successes / total_responses) * 100 if total_responses > 0 else 0,
+                "logic_error_percentage": (overall_logic_errors / total_responses) * 100 if total_responses > 0 else 0,
+                "db_error_percentage": (overall_db_errors / total_responses) * 100 if total_responses > 0 else 0
             }
         else:
             metric_result = self.compute_metric_with_errors(
@@ -143,16 +149,22 @@ class Text2SQLEvaluator:
 
     def compute_metric_with_errors(self, results: list[dict], metric_name: str) -> dict:
         """
-        Compute metric with detailed error tracking
+        Compute metric with simplified error classification
+        
+        Error Types:
+        - Logic Errors: "Table mismatch" (SQL executed but wrong results)
+        - DB Errors: All other errors (SQL couldn't execute, timeouts, exceptions, etc.)
+        - Successes: Perfect matches
         
         Returns:
-            dict: Contains metric percentage, error counts, and success/failure statistics
+            dict: Contains metric percentage, success count, logic errors, db errors and their percentages
         """
         total_queries = len(results)
         
-        # Count errors and successes
-        error_count = 0
-        success_count = 0
+        # Count different types of errors and successes
+        db_error_count = 0        # All errors except table mismatch
+        logic_error_count = 0     # Table mismatch only
+        success_count = 0         # Perfect match
         
         for result in results:
             error_msg = result.get("error", "")
@@ -161,10 +173,15 @@ class Text2SQLEvaluator:
             if error_msg is None:
                 error_msg = ""
             
-            if error_msg and error_msg.strip():  # Has an error message
-                error_count += 1
-            else:  # No error means success
+            if not error_msg or not error_msg.strip():
+                # No error means success
                 success_count += 1
+            elif error_msg == "Table mismatch":
+                # SQL executed but results don't match
+                logic_error_count += 1
+            else:
+                # All other errors are DB errors (syntax, timeouts, exceptions, etc.)
+                db_error_count += 1
         
         # Compute the actual metric
         if metric_name == "accuracy":
@@ -179,9 +196,10 @@ class Text2SQLEvaluator:
         
         return {
             f"{metric_name}_percentage": metric_value,
-            "total_queries": total_queries,
             "success_count": success_count,
-            "error_count": error_count,
-            "error_rate": (error_count / total_queries) * 100 if total_queries > 0 else 0,
-            "success_rate": (success_count / total_queries) * 100 if total_queries > 0 else 0
+            "logic_error_count": logic_error_count,
+            "db_error_count": db_error_count,
+            "success_percentage": (success_count / total_queries) * 100 if total_queries > 0 else 0,
+            "logic_error_percentage": (logic_error_count / total_queries) * 100 if total_queries > 0 else 0,
+            "db_error_percentage": (db_error_count / total_queries) * 100 if total_queries > 0 else 0
         }

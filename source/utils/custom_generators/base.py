@@ -72,7 +72,10 @@ class Text2SQLGeneratorBase(ABC):
         **kwargs,
     ):
         error_already_found = False
-        for _ in range(max_retries):
+        first_attempt_failed = False
+        correction_successful = False
+        
+        for attempt in range(max_retries):
             sql = self.generate(
                 data_blob=data_blob,
                 temperature=temperature,
@@ -80,11 +83,17 @@ class Text2SQLGeneratorBase(ABC):
                 postprocess=postprocess,
                 **kwargs,
             )
-            error = executor.execute_sql(sql=sql, dsn_or_db_path=data_blob["db_path"])[
-                "error"
-            ]
+            error = executor.execute_sql(sql=sql, dsn_or_db_path=data_blob["db_path"])["error"]
+            
+            # Track first attempt failure
+            if attempt == 0 and error:
+                first_attempt_failed = True
+            
             if not error:
-                return sql
+                # If we succeeded after the first attempt failed
+                if first_attempt_failed and attempt > 0:
+                    correction_successful = True
+                return sql, first_attempt_failed, correction_successful
 
             if not error_already_found:
                 prompt = data_blob["prompt"].split("# SQL:")[0].strip()
@@ -93,7 +102,8 @@ class Text2SQLGeneratorBase(ABC):
                 )
                 data_blob["prompt"] = error_prompt
                 error_already_found = True
-        return sql
+                
+        return sql, first_attempt_failed, correction_successful
 
     def postprocess(self, output_string: str):
         sql_start_keywords = [
@@ -112,17 +122,7 @@ class Text2SQLGeneratorBase(ABC):
         else:
             sql_statement = output_string
 
-        # Format the SQL and clean it up
-        formatted_sql = sqlparse.format(sql_statement.split("# SQL:")[-1].strip())
-        print(1, formatted_sql)
-        # Remove any trailing whitespace
-        formatted_sql = formatted_sql.strip()
-        
-        # Add semicolon if it doesn't end with one
-        if not formatted_sql.endswith(';'):
-            formatted_sql += ';'
-        print(2, formatted_sql)
-        return formatted_sql
+        return sqlparse.format(sql_statement.split("# SQL:")[-1].strip())
 
     def load_results_from_folder(self):
         item_names = [item.name for item in self.experiment_path.iterdir()]
@@ -150,9 +150,14 @@ class Text2SQLGeneratorBase(ABC):
 
         to_dump = []
         count = 0
+        
+        # Simple correction tracking
+        first_try_failed = 0
+        managed_to_correct = 0
+        
         for content in tqdm(dataset, total=len(dataset), desc="Generating result ..."):
-            sql = (
-                self.execution_guided_decoding(
+            if executor is not None:
+                sql, first_attempt_failed, correction_successful = self.execution_guided_decoding(
                     data_blob=content,
                     executor=executor,
                     temperature=temperature,
@@ -161,15 +166,21 @@ class Text2SQLGeneratorBase(ABC):
                     max_retries=max_retries,
                     **kwargs,
                 )
-                if executor is not None
-                else self.generate(
+                
+                # Track correction stats
+                if first_attempt_failed:
+                    first_try_failed += 1
+                    if correction_successful:
+                        managed_to_correct += 1
+                        
+            else:
+                sql = self.generate(
                     data_blob=content,
                     temperature=temperature,
                     max_new_tokens=max_new_tokens,
                     postprocess=postprocess,
                     **kwargs,
                 )
-            )
             
             to_dump.append({**content, "generated": sql})
             count += 1
@@ -179,4 +190,13 @@ class Text2SQLGeneratorBase(ABC):
 
         json.dump(to_dump, open(self.experiment_path / "predict.json", "w"), indent=4)
         logger.info(f"All responses are written to: {self.experiment_path}")
+        
+        # Print correction statistics
+        if executor is not None:
+            percentage = (managed_to_correct / first_try_failed * 100) if first_try_failed > 0 else 0
+            print(f"\nCorrection Statistics:")
+            print(f"First try failed: {first_try_failed}")
+            print(f"Managed to correct: {managed_to_correct}")
+            print(f"Correction percentage: {percentage:.1f}%")
+        
         return to_dump
