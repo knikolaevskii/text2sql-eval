@@ -16,7 +16,7 @@ bird_dataset = Text2SQLDataset(
     split="validation", 
     force_download=False,
     dataset_folder="source/datasets"
-).setup_dataset(num_rows=1)
+).setup_dataset(num_rows=20)
 
 
 # Initialize the OpenRouter generator
@@ -33,10 +33,9 @@ executor = SQLiteExecutor()
 # Get the responses with execution-guided decoding
 responses = generator.generate_and_save_results(
     dataset=bird_dataset,
-    temperature=0.1,
+    temperature=0,
     max_new_tokens=256,
     force=True,
-    executor=executor,  # This enables execution-guided decoding
     postprocess=True
 )
 

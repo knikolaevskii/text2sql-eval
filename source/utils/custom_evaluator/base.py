@@ -87,6 +87,7 @@ class Text2SQLEvaluator:
             data_with_results.append({**response, **result})
 
         execution_result = {}
+        
         if filter_by:
             if filter_by not in data_with_results[0]:
                 raise KeyError(f"Filter key: {filter_by} is not found in responses")
@@ -94,6 +95,7 @@ class Text2SQLEvaluator:
             filter_values = {response[filter_by] for response in data_with_results}
             total_responses = len(data_with_results)
             overall_metric = 0.0
+            overall_error_count = 0
 
             for value in filter_values:
                 filtered_responses = [
@@ -101,19 +103,31 @@ class Text2SQLEvaluator:
                     for response in data_with_results
                     if response[filter_by] == value
                 ]
-                metric_value = self.compute_metric(
+                
+                # Compute metric and error counts for this filter value
+                metric_result = self.compute_metric_with_errors(
                     results=filtered_responses, metric_name=metric_name
                 )
-                execution_result[value] = metric_value
-                overall_metric += (
-                    metric_value * len(filtered_responses) / total_responses
-                )
+                
+                execution_result[value] = metric_result
+                
+                # Weight the overall metrics by the number of responses in this group
+                weight = len(filtered_responses) / total_responses
+                overall_metric += metric_result[f"{metric_name}_percentage"] * weight
+                overall_error_count += metric_result["error_count"]
 
-            execution_result["overall"] = overall_metric
+            execution_result["overall"] = {
+                f"{metric_name}_percentage": overall_metric,
+                "total_queries": total_responses,
+                "error_count": overall_error_count,
+                "success_count": total_responses - overall_error_count,
+                "error_rate": (overall_error_count / total_responses) * 100 if total_responses > 0 else 0
+            }
         else:
-            execution_result["overall"] = self.compute_metric(
+            metric_result = self.compute_metric_with_errors(
                 results=data_with_results, metric_name=metric_name
             )
+            execution_result["overall"] = metric_result
 
         save_to_json(
             json_object=execution_result,
@@ -127,17 +141,47 @@ class Text2SQLEvaluator:
         )
         return execution_result
 
-    def compute_metric(self, results: list[dict], metric_name: str) -> float:
+    def compute_metric_with_errors(self, results: list[dict], metric_name: str) -> dict:
+        """
+        Compute metric with detailed error tracking
+        
+        Returns:
+            dict: Contains metric percentage, error counts, and success/failure statistics
+        """
+        total_queries = len(results)
+        
+        # Count errors and successes
+        error_count = 0
+        success_count = 0
+        
+        for result in results:
+            error_msg = result.get("error", "")
+            
+            # Handle None values for error_msg
+            if error_msg is None:
+                error_msg = ""
+            
+            if error_msg and error_msg.strip():  # Has an error message
+                error_count += 1
+            else:  # No error means success
+                success_count += 1
+        
+        # Compute the actual metric
         if metric_name == "accuracy":
-            return sum(res["accuracy"] for res in results) / len(results) * 100
-
+            metric_value = sum(res["accuracy"] for res in results) / total_queries * 100
         elif metric_name == "ves":
-            num_queries = len(results)
             total_ratio = 0.0
             for result in results:
                 total_ratio += math.sqrt(result["ves"]) * 100
-            ves = total_ratio / num_queries
-            return ves
-
+            metric_value = total_ratio / total_queries
         else:
             raise ValueError(f"Invalid metric name: {metric_name}")
+        
+        return {
+            f"{metric_name}_percentage": metric_value,
+            "total_queries": total_queries,
+            "success_count": success_count,
+            "error_count": error_count,
+            "error_rate": (error_count / total_queries) * 100 if total_queries > 0 else 0,
+            "success_rate": (success_count / total_queries) * 100 if total_queries > 0 else 0
+        }
