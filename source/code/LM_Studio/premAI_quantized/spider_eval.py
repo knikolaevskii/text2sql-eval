@@ -1,23 +1,25 @@
-from utils.custom_datasets_wikisql import Text2SQLDataset
+import os
+from utils.regular_datasets import Text2SQLDataset
 from premsql.executors import SQLiteExecutor
 from utils.custom_evaluator import Text2SQLEvaluator
-from utils.custom_generators import Text2SQLGeneratorOpenRouter
+from utils.custom_generators import Text2SQLGeneratorAPI
 
 
-wiki_dataset = Text2SQLDataset(
-    dataset_name='wikisql',
-    split="test",
+# Initialize the BirdBench Dataset
+spider_dataset = Text2SQLDataset(
+    dataset_name='spider', 
+    split="validation", 
+    force_download=False,
     dataset_folder="source/datasets",
-    prompt_template="source/prompts/wikisql_prompt.md",
-    data_schema_file="source/datasets/wikisql/test_wiki_sql_metadata.json"
-).setup_dataset(num_rows=1000, custom_db_path="source/datasets/wikisql/database/test.db")
+).setup_dataset(num_rows=10, prompt_template="source/prompts/spider_prompt.md")
+
 
 # Initialize the OpenRouter generator
-generator = Text2SQLGeneratorOpenRouter(
-    model_name="gpt-4o-mini",  # You can use any model from the mapping or full OpenRouter model ID
-    experiment_name="wikisql_gpt_o4_mini_openrouter_generators",
+generator = Text2SQLGeneratorAPI(
+    model_name="premAI_quantized",  # Replace with your model name
+    experiment_name="spider_premAI_quantized_LM_Studio",
     type="test",
-    openrouter_api_key="***REMOVED***",  # Will use OPENROUTER_API_KEY env var if None
+    api_base_url="http://localhost:1234/v1",  # Using root endpoint, client will append /completions
 )
 
 # Initialize executor
@@ -25,13 +27,13 @@ executor = SQLiteExecutor()
 
 # Get the responses with execution-guided decoding
 responses = generator.generate_and_save_results(
-    dataset=wiki_dataset,
+    dataset=spider_dataset,
     temperature=0,
     max_new_tokens=256,
     force=True,
     postprocess=True,
     executor=executor,
-    max_retries=3
+    max_retries=3,
 )
 
 
@@ -45,8 +47,10 @@ evaluator = Text2SQLEvaluator(
 results = evaluator.execute(
     metric_name="accuracy",
     model_responses=responses,
+    filter_by="db_id",
     meta_time_out=10
 )
 
 print("Evaluation Results:")
 print(results)
+

@@ -56,11 +56,3 @@ results = evaluator.execute(
 print("Evaluation Results:")
 print(results)
 
-# Optional: Print some example responses
-# print("\nSample responses:")
-# for i, response in enumerate(responses[:3]):  # Show first 3 responses
-#     print(f"\nExample {i+1}:")
-#     print(f"Question: {response.get('question', 'N/A')}")
-#     print(f"Generated SQL: {response.get('generated', 'N/A')}")
-#     if 'evidence' in response:
-#         print(f"Evidence: {response['evidence']}")

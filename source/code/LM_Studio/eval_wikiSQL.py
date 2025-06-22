@@ -82,8 +82,8 @@ wiki_dataset = Text2SQLDataset(
 
 # Initialize the API generator with your local endpoint
 generator = Text2SQLGeneratorAPI(
-    model_name="some",  # Replace with your model name
-    experiment_name="test_api_generators",
+    model_name="premAI_quantized",  # Replace with your model name
+    experiment_name="wikisql_premAI_quantized_LM_Studio",
     type="test",
     api_base_url="http://localhost:1234/v1",  # Using root endpoint, client will append /completions
 )

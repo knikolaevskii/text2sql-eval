@@ -1,7 +1,7 @@
 from utils.custom_datasets_wikisql import Text2SQLDataset
 from premsql.executors import SQLiteExecutor
 from utils.custom_evaluator import Text2SQLEvaluator
-from utils.custom_generators import Text2SQLGeneratorOpenRouter
+from utils.custom_generators import WikiSQLText2SQLGeneratorAPI
 
 
 wiki_dataset = Text2SQLDataset(
@@ -10,14 +10,14 @@ wiki_dataset = Text2SQLDataset(
     dataset_folder="source/datasets",
     prompt_template="source/prompts/wikisql_prompt.md",
     data_schema_file="source/datasets/wikisql/test_wiki_sql_metadata.json"
-).setup_dataset(num_rows=1000, custom_db_path="source/datasets/wikisql/database/test.db")
+).setup_dataset(num_rows=10, custom_db_path="source/datasets/wikisql/database/test.db")
 
 # Initialize the OpenRouter generator
-generator = Text2SQLGeneratorOpenRouter(
-    model_name="gpt-4o-mini",  # You can use any model from the mapping or full OpenRouter model ID
-    experiment_name="wikisql_gpt_o4_mini_openrouter_generators",
+generator = WikiSQLText2SQLGeneratorAPI(
+    model_name="premAI_quantized",  # Replace with your model name
+    experiment_name="wikisql_premAI_quantized_LM_Studio",
     type="test",
-    openrouter_api_key="***REMOVED***",  # Will use OPENROUTER_API_KEY env var if None
+    api_base_url="http://localhost:1234/v1",  # Using root endpoint, client will append /completions
 )
 
 # Initialize executor
