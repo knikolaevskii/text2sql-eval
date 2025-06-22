@@ -1,10 +1,8 @@
 from pathlib import Path
 from typing import Optional, Union
 
-from .base import StandardDataset, Text2SQLBaseDataset
-from .real.bird import BirdDataset
-from .real.domains import DomainsDataset
-from .real.spider import SpiderUnifiedDataset
+from .base import  Text2SQLBaseDataset
+from .real.defog import DefogDataset
 from premsql.utils import get_accepted_filters
 
 
@@ -60,10 +58,6 @@ class Text2SQLDataset:
 
 
 __all__ = [
-    "StandardDataset",
-    "GretelAIDataset",
-    "SpiderUnifiedDataset",
-    "BirdDataset",
-    "DomainsDataset",
+    "DefogDataset",
     "Text2SQLDataset",
 ]

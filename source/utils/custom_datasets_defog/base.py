@@ -4,7 +4,8 @@ import sqlite3
 from abc import ABC, abstractmethod
 from copy import deepcopy
 from pathlib import Path
-from typing import Optional, Sequence, Union
+from typing import Optional, Sequence, Union, Dict, List
+import numpy as np
 
 from tqdm.auto import tqdm
 
@@ -83,6 +84,40 @@ class Text2SQLBaseInstance:
         )
         return db_fewshot_prompts_map[db_id]
 
+    @staticmethod
+    def to_prompt_schema(
+        md: Dict[str, List[Dict[str, str]]], seed: Optional[int] = None
+    ) -> str:
+        
+        md_create = ""
+        table_names = list(md.keys())
+        if seed:
+            np.random.seed(seed)
+            np.random.shuffle(table_names)
+        for table in table_names:
+            md_create += f"CREATE TABLE {table} (\n"
+            columns = md[table]
+            if seed:
+                np.random.seed(seed)
+                np.random.shuffle(columns)
+            for i, column in enumerate(columns):
+                col_name = column["column_name"]
+                # if column name has spaces, wrap it in double quotes
+                if " " in col_name:
+                    col_name = f'"{col_name}"'
+                dtype = column["data_type"]
+                col_desc = column.get("column_description", "").replace("\n", " ")
+                if col_desc:
+                    col_desc = f" --{col_desc}"
+                if i < len(columns) - 1:
+                    md_create += f"  {col_name} {dtype},{col_desc}\n"
+                else:
+                    # avoid the trailing comma for the last line
+                    md_create += f"  {col_name} {dtype}{col_desc}\n"
+            md_create += ");\n"
+        return md_create
+
+
     def apply_prompt(
         self,
         num_fewshot: Optional[int] = None,
@@ -98,13 +133,18 @@ class Text2SQLBaseInstance:
         )
         
         for blob in tqdm(self.dataset, total=len(self.dataset), desc="Applying prompt"):
+
+            with open(blob["schema_path"], "r") as f:
+                schema = json.load(f)
+            schema = schema["table_metadata"]
+            schemas = self.to_prompt_schema(schema)
             few_shot_prompt = (
                 ""
                 if num_fewshot is None
                 else self.add_few_shot_examples(db_id=blob["db_id"], k=num_fewshot)
             )
-            schemas=self.schema_prompt(blob["db_path"])
             instructions = blob.get("instructions", "")
+
             final_prompt = prompt_template_content.format(
                 db_type="SQLite",
                 schemas=schemas,
@@ -120,7 +160,7 @@ class Text2SQLBaseInstance:
                 user_question=blob["question"],
             )
             blob["prompt"] = final_prompt
-            # print(final_prompt)
+            print(final_prompt)
 
         return self.dataset
 
@@ -244,8 +284,8 @@ class Text2SQLBaseDataset(ABC):
         self.dataset_path = Path(dataset_path)
         self.database_folder_name = database_folder_name
         self.dataset = json.load(open(self.dataset_path / json_file_name, "r"))
-        assert split in ["train", "validation", "test"], ValueError(
-            "Split should be either train or validation"
+        assert split in ["test", "questions_gen"], ValueError(
+            "Split should be either test or questions_gen"
         )
         self.split = split
         self.hf_token = hf_token if hf_token else os.environ.get("HF_TOKEN", None)
@@ -273,8 +313,18 @@ class Text2SQLBaseDataset(ABC):
                 self.dataset_path
                 / f"{self.database_folder_name}"
                 / content["db_id"]
-                / f"{content['db_id']}.sqlite"
+                / f"{content['db_id']}.db"
             )
+
+                    
+        for content in self.dataset:
+            content["schema_path"] = str(
+                self.dataset_path
+                / f"{self.database_folder_name}"
+                / content["db_id"]
+                / f"{content['db_id']}.json"
+            )
+
 
         if filter_by:
             self.dataset = filter_options(data=self.dataset, filter_by=filter_by)
@@ -297,40 +347,3 @@ class Text2SQLBaseDataset(ABC):
 
     def __getitem__(self, idx):
         return dict(**self.dataset[idx])
-
-
-class StandardDataset(Text2SQLBaseDataset):
-    def __init__(
-        self,
-        split: str,
-        dataset_path: Union[str, Path],
-        database_folder_name: str,
-        json_file_name: str,
-        hf_token: Optional[str] = None,
-    ):
-        super().__init__(
-            split=split,
-            dataset_path=dataset_path,
-            database_folder_name=database_folder_name,
-            json_file_name=json_file_name,
-            hf_token=hf_token,
-        )
-
-    def setup_dataset(
-        self,
-        filter_by: tuple | None = None,
-        num_rows: int | None = None,
-        num_fewshot: int | None = None,
-        model_name_or_path: str | None = None,
-        prompt_template: str | None = None,
-        tokenize: bool | None = False 
-    ):
-        logger.info("Setting up Dataset")
-        return super().setup_dataset(
-            filter_by=filter_by,
-            num_rows=num_rows,
-            model_name_or_path=model_name_or_path,
-            tokenize=tokenize,
-            prompt_template=prompt_template,
-            num_fewshot=num_fewshot
-        )

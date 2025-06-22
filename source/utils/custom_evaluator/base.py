@@ -2,6 +2,7 @@ import math
 import traceback
 from pathlib import Path
 from typing import Optional, Union
+import itertools
 
 from func_timeout import FunctionTimedOut, func_timeout
 from tqdm.auto import tqdm
@@ -62,6 +63,57 @@ class Text2SQLEvaluator:
                 metric_name: 0,
                 "error": f"Exception: {e}",
             }
+    # find start and end index of { } in a string. return (start, end) if found, else return (-1, -1)
+    def find_bracket_indices(self, s: str, start_index: int = 0) -> "tuple[int, int]":
+        start = s.find("{", start_index)
+        end = s.find("}", start + 1)
+        if start == -1 or end == -1:
+            return (-1, -1)
+        return (start, end)
+
+    # extrapolate all possible queries from a query with { } in it
+    def get_all_minimal_queries(self, query: str) -> "list[str]":
+        """
+        extrapolate all possible queries
+        - split by semicolon. this is to accommodate queries where joins to other tables are also acceptable.
+        - expand all column permutations if there are braces { } in it. eg:
+        ```sql
+            SELECT {user.id, user.name} FROM user;
+        ```
+        Would be expanded to:
+        ```sql
+            SELECT user.id FROM user;
+            SELECT user.name FROM user;
+            SELECT user.id, user.name FROM user;
+        ```
+        """
+        queries = query.split(";")
+        result_queries = []
+        for query in queries:
+            query = query.strip()
+            if query == "":
+                continue
+            start, end = self.find_bracket_indices(query, 0)
+            if (start, end) == (-1, -1):
+                result_queries.append(query)
+                continue
+            else:
+                # get all possible column subsets
+                column_options = query[start + 1 : end].split(",")
+                column_combinations = list(
+                    itertools.chain.from_iterable(
+                        itertools.combinations(column_options, r)
+                        for r in range(1, len(column_options) + 1)
+                    )
+                )
+                for column_tuple in column_combinations:
+                    left = query[:start]
+                    column_str = ", ".join(column_tuple)
+                    right = query[end + 1 :]
+                    # change group by size dynamically if necessary
+                    right = right.replace("GROUP BY {}", f"GROUP BY {column_str}")
+                    result_queries.append(left + column_str + right)
+        return result_queries
 
     def execute(
         self,
@@ -75,16 +127,34 @@ class Text2SQLEvaluator:
         data_with_results = []
 
         for response in tqdm(model_responses, total=len(model_responses)):
-            result = self._execute_model(
-                metric_name=metric_name,
-                generated_sql=response["generated"],
-                gold_sql=response["SQL"],
-                dsn_or_db_path=response["db_path"],
-                num_iterations=num_iterations,
-                meta_time_out=meta_time_out,
-                debug=debug,
-            )
-            data_with_results.append({**response, **result})
+            generated_sql = response["generated"]
+            gold_sql = response["SQL"]
+            db_path = response["db_path"]
+
+            minimal_gold_queries = self.get_all_minimal_queries(gold_sql)
+            best_result = None
+
+            for gold_variant in minimal_gold_queries:
+                result = self._execute_model(
+                    metric_name=metric_name,
+                    generated_sql=generated_sql,
+                    gold_sql=gold_variant,
+                    dsn_or_db_path=db_path,
+                    num_iterations=num_iterations,
+                    meta_time_out=meta_time_out,
+                    debug=debug,
+                )
+
+                # Early stop if accuracy is 1
+                if result[metric_name] == 1:
+                    data_with_results.append({**response, **result})
+                    break
+                else:
+                    best_result = result
+
+            else:
+                # No early break: use the last result from last variant
+                data_with_results.append({**response, **best_result})
 
         execution_result = {}
         

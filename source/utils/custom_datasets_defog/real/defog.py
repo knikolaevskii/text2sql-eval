@@ -2,9 +2,9 @@ from pathlib import Path
 from typing import Optional, Union
 
 from premsql.logger import setup_console_logger
-from utils.custom_datasets_wikisql.base import Text2SQLBaseDataset
+from utils.custom_datasets_defog.base import Text2SQLBaseDataset
 
-logger = setup_console_logger("[WIKISQL-DATASET]")
+logger = setup_console_logger("[DEFOG-DATASET]")
 
 
 class DefogDataset(Text2SQLBaseDataset):
@@ -20,13 +20,15 @@ class DefogDataset(Text2SQLBaseDataset):
         if not defog_folder.exists():
             raise ValueError("Defog dataset not found")
 
-        assert split in ["test"], ValueError(
-            "Split should be test"
+        assert split in ["test", "questions_gen"], ValueError(
+            "Split should be test or questions_gen"
         )
         if split == "test":
             json_file_name = "test.json"
+        elif split == "questions_gen":
+            json_file_name = "questions_gen.json"
         else:
-            raise ValueError("Split should be test")
+            raise ValueError("Split should be test or questions_gen")
 
         super().__init__(
             split=split,
