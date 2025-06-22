@@ -1,6 +1,6 @@
 import os
 from typing import Optional
-
+import time
 from .base import Text2SQLGeneratorBase
 
 try:
@@ -57,10 +57,11 @@ class Text2SQLGeneratorOpenRouter(Text2SQLGeneratorBase):
         """Initialize OpenRouter client using OpenAI SDK with custom base URL"""
         extra_headers = {}
         
-            
+        import httpx
         client = OpenAI(
             base_url="https://openrouter.ai/api/v1",
             api_key=self._api_key,
+            http_client=httpx.Client(timeout=httpx.Timeout(30.0))
         )
         return client
 
@@ -73,12 +74,16 @@ class Text2SQLGeneratorOpenRouter(Text2SQLGeneratorBase):
     def model_name_or_path(self):
         return self.model_name
 
+
+
     def generate(
         self,
         data_blob: dict,
         temperature: Optional[float] = 0.0,
         max_new_tokens: Optional[int] = 256,
         postprocess: Optional[bool] = True,
+        retries: int = 3,
+        retry_delay: float = 2.0,
         **kwargs
     ) -> str:
         """
@@ -89,6 +94,8 @@ class Text2SQLGeneratorOpenRouter(Text2SQLGeneratorBase):
             temperature: Sampling temperature (0.0 for deterministic)
             max_new_tokens: Maximum number of tokens to generate
             postprocess: Whether to postprocess the output
+            retries: Number of retries in case of failure
+            retry_delay: Delay between retries in seconds
             **kwargs: Additional generation parameters
             
         Returns:
@@ -96,51 +103,63 @@ class Text2SQLGeneratorOpenRouter(Text2SQLGeneratorBase):
         """
         prompt = data_blob["prompt"]
         max_tokens = max_new_tokens
-        
-        # Prepare generation configuration
+
         generation_config = {
             "temperature": temperature, 
             "max_tokens": max_tokens,
-            **kwargs  # Allow additional parameters to be passed through
+            **kwargs
         }
 
         if self.data_base_type == 'sqlite':
-            system_prompt = "You are an expert SQLite developer. Your role is to convert user questions into accurate, efficient SQL queries based on the provided database schema. Always return only the SQL query without any explanations or formatting."
+            system_prompt = (
+                "You are an expert SQLite developer. Your role is to convert user questions into "
+                "accurate, efficient SQL queries based on the provided database schema. Always return "
+                "only the SQL query without any explanations or formatting."
+            )
         elif self.data_base_type == 'postgresql':
-            system_prompt = "You are an expert PostgreSQL developer. Your role is to convert user questions into accurate, efficient SQL queries based on the provided database schema. Always return only the SQL query without any explanations or formatting."
+            system_prompt = (
+                "You are an expert PostgreSQL developer. Your role is to convert user questions into "
+                "accurate, efficient SQL queries based on the provided database schema. Always return "
+                "only the SQL query without any explanations or formatting."
+            )
         elif self.data_base_type == 'wikisql':
-            system_prompt = "You are an expert SQLite developer. Your role is to convert user questions into accurate, efficient SQL queries based on the provided database schema. Always return only the SQL query without any explanations or formatting and use lowercase in WHERE clauses and finish the query with ; . col0, col1, col2 are the actual column names in the database, so use them in the query"
+            system_prompt = (
+                "You are an expert SQLite developer. Your role is to convert user questions into "
+                "accurate, efficient SQL queries based on the provided database schema. Always return "
+                "only the SQL query without any explanations or formatting and use lowercase in WHERE "
+                "clauses and finish the query with ; . col0, col1, col2 are the actual column names in "
+                "the database, so use them in the query"
+            )
         else:
             raise ValueError(f"Invalid database type: {self.data_base_type}")
-        
-        try:
-            # Make API call to OpenRouter
-            completion = self.client.chat.completions.create(
-                model=self.model_name,
-                messages=[
-                    {
-                        "role": "system", 
-                        "content": system_prompt
-                    },
-                    {"role": "user", "content": prompt}
-                ],
-                **generation_config
-            )
-            
-            generated_text = completion.choices[0].message.content
-            
-            # Apply postprocessing if requested
-            if postprocess:
-                return self.postprocess(output_string=generated_text)
-            else:
-                return generated_text
-                
-        except Exception as e:
-            # Log the error and re-raise with more context
-            from premsql.logger import setup_console_logger
-            logger = setup_console_logger(name="[OPENROUTER_GENERATOR]")
-            logger.error(f"Error generating SQL with model {self.model_name}: {str(e)}")
-            raise
+
+        attempt = 0
+        while attempt < retries:
+            try:
+                completion = self.client.chat.completions.create(
+                    model=self.model_name,
+                    messages=[
+                        {"role": "system", "content": system_prompt},
+                        {"role": "user", "content": prompt}
+                    ],
+                    **generation_config
+                )
+
+                generated_text = completion.choices[0].message.content
+
+                return self.postprocess(output_string=generated_text) if postprocess else generated_text
+
+            except Exception as e:
+                attempt += 1
+                print(f"[Attempt {attempt}] Error: {e}")
+                from premsql.logger import setup_console_logger
+                logger = setup_console_logger(name="[OPENROUTER_GENERATOR]")
+                logger.error(f"[Attempt {attempt}] Error generating SQL with model {self.model_name}: {str(e)}")
+
+                if attempt >= retries:
+                    raise
+                time.sleep(retry_delay)
+
 
     def get_available_models(self):
         """Return list of available model short names"""

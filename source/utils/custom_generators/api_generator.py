@@ -1,6 +1,6 @@
 import os
 from typing import Optional
-
+import time
 from utils.custom_generators.base import Text2SQLGeneratorBase
 
 try:
@@ -61,12 +61,16 @@ class Text2SQLGeneratorAPI(Text2SQLGeneratorBase):
     def model_name_or_path(self):
         return self.model_name
 
+    import time
+
     def generate(
         self,
         data_blob: dict,
         temperature: Optional[float] = 0.0,
         max_new_tokens: Optional[int] = 256,
         postprocess: Optional[bool] = True,
+        retries: int = 3,
+        retry_delay: float = 2.0,
         **kwargs
     ) -> str:
         prompt = data_blob["prompt"]
@@ -76,21 +80,27 @@ class Text2SQLGeneratorAPI(Text2SQLGeneratorBase):
             **{"temperature": temperature, "max_tokens": max_tokens},
         }
 
-        try:
-            completion = (
-                self.client.completions.create(
-                    model=self.model_name,
-                    prompt=prompt,
-                    **generation_config
+        attempt = 0
+        while attempt < retries:
+            try:
+                completion = (
+                    self.client.completions.create(
+                        model=self.model_name,
+                        prompt=prompt,
+                        **generation_config
+                    )
+                    .choices[0]
+                    .text
                 )
-                .choices[0]
-                .text
-            )
-            
-            return self.postprocess(output_string=completion) if postprocess else completion
-            
-        except Exception as e:
-            from premsql.logger import setup_console_logger
-            logger = setup_console_logger(name="[API_GENERATOR]")
-            logger.error(f"Error generating SQL with model {self.model_name}: {str(e)}")
-            raise
+                return self.postprocess(output_string=completion) if postprocess else completion
+
+            except Exception as e:
+                attempt += 1
+                print(f"[Attempt {attempt}] Error: {e}")
+                from premsql.logger import setup_console_logger
+                logger = setup_console_logger(name="[API_GENERATOR]")
+                logger.error(f"Error generating SQL with model {self.model_name}: {str(e)}")
+
+                if attempt >= retries:
+                    raise  # re-raise after final failed attempt
+                time.sleep(retry_delay)  # wait before retrying

@@ -156,37 +156,47 @@ class Text2SQLGeneratorBase(ABC):
         managed_to_correct = 0
         
         for content in tqdm(dataset, total=len(dataset), desc="Generating result ..."):
-            if executor is not None:
-                sql, first_attempt_failed, correction_successful = self.execution_guided_decoding(
-                    data_blob=content,
-                    executor=executor,
-                    temperature=temperature,
-                    postprocess=postprocess,
-                    max_new_tokens=max_new_tokens,
-                    max_retries=max_retries,
-                    **kwargs,
-                )
+            try:
+                if executor is not None:
+                    sql, first_attempt_failed, correction_successful = self.execution_guided_decoding(
+                        data_blob=content,
+                        executor=executor,
+                        temperature=temperature,
+                        postprocess=postprocess,
+                        max_new_tokens=max_new_tokens,
+                        max_retries=max_retries,
+                        **kwargs,
+                    )
+                    
+                    # Track correction stats
+                    if first_attempt_failed:
+                        first_try_failed += 1
+                        if correction_successful:
+                            managed_to_correct += 1
+                            
+                else:
+                    sql = self.generate(
+                        data_blob=content,
+                        temperature=temperature,
+                        max_new_tokens=max_new_tokens,
+                        postprocess=postprocess,
+                        **kwargs,
+                    )
                 
-                # Track correction stats
-                if first_attempt_failed:
-                    first_try_failed += 1
-                    if correction_successful:
-                        managed_to_correct += 1
-                        
-            else:
-                sql = self.generate(
-                    data_blob=content,
-                    temperature=temperature,
-                    max_new_tokens=max_new_tokens,
-                    postprocess=postprocess,
-                    **kwargs,
-                )
-            
-            to_dump.append({**content, "generated": sql})
-            count += 1
-            if count % 5 == 0:
-                json.dump(to_dump, open(self.experiment_path / "predict.json", "w"), indent=4)
-                logger.info(f"Saved progress: {count}/{len(dataset)} completed")
+                to_dump.append({**content, "generated": sql})
+                count += 1
+                
+                # Save progress more frequently for large datasets
+                if count % 5 == 0:
+                    json.dump(to_dump, open(self.experiment_path / "predict.json", "w"), indent=4)
+                    logger.info(f"Saved progress: {count}/{len(dataset)} completed")
+                    
+            except Exception as e:
+                logger.error(f"Error processing item {count}: {str(e)}")
+                # Add a fallback SQL to prevent stopping
+                to_dump.append({**content, "generated": "SELECT 1;", "error": str(e)})
+                count += 1
+                continue
 
         json.dump(to_dump, open(self.experiment_path / "predict.json", "w"), indent=4)
         logger.info(f"All responses are written to: {self.experiment_path}")
