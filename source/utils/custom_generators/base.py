@@ -11,6 +11,7 @@ from platformdirs import user_cache_dir
 from premsql.evaluator.base import BaseExecutor
 from premsql.logger import setup_console_logger
 from premsql.prompts import ERROR_HANDLING_PROMPT
+from func_timeout import FunctionTimedOut, func_timeout
 
 logger = setup_console_logger(name="[GENERATOR]")
 
@@ -83,8 +84,12 @@ class Text2SQLGeneratorBase(ABC):
                 postprocess=postprocess,
                 **kwargs,
             )
-            error = executor.execute_sql(sql=sql, dsn_or_db_path=data_blob["db_path"])["error"]
             
+            try:
+                error = func_timeout(15, executor.execute_sql, args=(sql, data_blob["db_path"]))["error"] 
+            except FunctionTimedOut:
+                error = "Timeout"
+
             # Track first attempt failure
             if attempt == 0 and error:
                 first_attempt_failed = True

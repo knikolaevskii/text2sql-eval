@@ -160,7 +160,7 @@ class Text2SQLBaseInstance:
                 user_question=blob["question"],
             )
             blob["prompt"] = final_prompt
-            print(final_prompt)
+            # print(final_prompt)
 
         return self.dataset
 

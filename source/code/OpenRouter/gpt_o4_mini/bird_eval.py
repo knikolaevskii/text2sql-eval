@@ -11,7 +11,7 @@ bird_dataset = Text2SQLDataset(
     split="validation", 
     force_download=False,
     dataset_folder="source/datasets",
-).setup_dataset(num_rows=1534, prompt_template="source/prompts/bird_prompt.md")
+).setup_dataset(num_rows=2, prompt_template="source/prompts/bird_prompt.md")
 
 
 # Initialize the OpenRouter generator

@@ -1,21 +1,21 @@
-from utils.custom_datasets_wikisql import Text2SQLDataset
-from premsql.executors import SQLiteExecutor
+from utils.custom_datasets_defog import Text2SQLDataset
+from utils.custom_executors import SQLiteExecutor
 from utils.custom_evaluator import Text2SQLEvaluator
-from utils.custom_generators import WikiSQLText2SQLGeneratorAPI
+from utils.custom_generators import Text2SQLGeneratorAPI
 
 
-wiki_dataset = Text2SQLDataset(
-    dataset_name='wikisql',
-    split="test",
+# Initialize the BirdBench Dataset
+bird_dataset = Text2SQLDataset(
+    dataset_name='defog', 
+    split="questions_gen", 
     dataset_folder="source/datasets",
-    prompt_template="source/prompts/wikisql_prompt.md",
-    data_schema_file="source/datasets/wikisql/test_wiki_sql_metadata.json"
-).setup_dataset(num_rows=100, custom_db_path="source/datasets/wikisql/database/test.db")
+).setup_dataset( prompt_template="source/prompts/defog_prompt.md")
+
 
 # Initialize the OpenRouter generator
-generator = WikiSQLText2SQLGeneratorAPI(
+generator = Text2SQLGeneratorAPI(
     model_name="premAI_quantized",  # Replace with your model name
-    experiment_name="wikisql_premAI_quantized_LM_Studio",
+    experiment_name="defog_premAI_quantized_LM_Studio",
     type="test",
     api_base_url="http://localhost:1234/v1",  # Using root endpoint, client will append /completions
 )
@@ -25,15 +25,16 @@ executor = SQLiteExecutor()
 
 # Get the responses with execution-guided decoding
 responses = generator.generate_and_save_results(
-    dataset=wiki_dataset,
+    dataset=bird_dataset,
     temperature=0,
     max_new_tokens=256,
     force=True,
     postprocess=True,
     executor=executor,
-    max_retries=3
+    max_retries=3,
 )
 
+# print(f"Generated {len(responses)} responses")
 
 # Define the evaluator
 evaluator = Text2SQLEvaluator(

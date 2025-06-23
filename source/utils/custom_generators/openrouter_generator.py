@@ -57,11 +57,9 @@ class Text2SQLGeneratorOpenRouter(Text2SQLGeneratorBase):
         """Initialize OpenRouter client using OpenAI SDK with custom base URL"""
         extra_headers = {}
         
-        import httpx
         client = OpenAI(
             base_url="https://openrouter.ai/api/v1",
             api_key=self._api_key,
-            http_client=httpx.Client(timeout=httpx.Timeout(30.0))
         )
         return client
 
@@ -144,6 +142,7 @@ class Text2SQLGeneratorOpenRouter(Text2SQLGeneratorBase):
                     ],
                     **generation_config
                 )
+                print(completion)
 
                 generated_text = completion.choices[0].message.content
 
