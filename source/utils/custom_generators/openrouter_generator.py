@@ -142,7 +142,6 @@ class Text2SQLGeneratorOpenRouter(Text2SQLGeneratorBase):
                     ],
                     **generation_config
                 )
-                print(completion)
 
                 generated_text = completion.choices[0].message.content
 

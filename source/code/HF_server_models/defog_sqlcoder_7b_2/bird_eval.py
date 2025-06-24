@@ -1,22 +1,25 @@
-from utils.custom_datasets_wikisql import Text2SQLDataset
+import os
+from utils.regular_datasets import Text2SQLDataset
 from premsql.executors import SQLiteExecutor
 from utils.custom_evaluator import Text2SQLEvaluator
-from utils.custom_generators import WikiSQLText2SQLGeneratorAPI
+from utils.custom_generators import Text2SQLGeneratorAPI
 
 
-wiki_dataset = Text2SQLDataset(
-    dataset_name='wikisql',
-    split="test",
+# Initialize the BirdBench Dataset
+spider_dataset = Text2SQLDataset(
+    dataset_name='bird', 
+    split="validation",
+    force_download=False,
     dataset_folder="source/datasets",
-    data_schema_file="source/datasets/wikisql/test_wiki_sql_metadata.json"
-).setup_dataset(num_rows=100, custom_db_path="source/datasets/wikisql/database/test.db")
+).setup_dataset(num_rows=10, prompt_template="source/prompts/bird_prompt.md")
+
 
 # Initialize the OpenRouter generator
-generator = WikiSQLText2SQLGeneratorAPI(
-    model_name="premAI_quantized",  # Replace with your model name
-    experiment_name="wikisql_premAI_quantized_LM_Studio",
+generator = Text2SQLGeneratorAPI(
+    model_name="defog_sqlcoder_7b_2",  # Replace with your model name
+    experiment_name="bird_defog_sqlcoder_7b_2",
     type="test",
-    api_base_url="http://localhost:1234/v1",  # Using root endpoint, client will append /completions
+    api_base_url="http://0.0.0.0:7860/v1",  # Using root endpoint, client will append /completions
 )
 
 # Initialize executor
@@ -24,13 +27,13 @@ executor = SQLiteExecutor()
 
 # Get the responses with execution-guided decoding
 responses = generator.generate_and_save_results(
-    dataset=wiki_dataset,
+    dataset=spider_dataset,
     temperature=0,
     max_new_tokens=256,
     force=True,
     postprocess=True,
     executor=executor,
-    max_retries=3
+    max_retries=3,
 )
 
 
@@ -44,8 +47,10 @@ evaluator = Text2SQLEvaluator(
 results = evaluator.execute(
     metric_name="accuracy",
     model_responses=responses,
+    filter_by="db_id",
     meta_time_out=10
 )
 
 print("Evaluation Results:")
 print(results)
+

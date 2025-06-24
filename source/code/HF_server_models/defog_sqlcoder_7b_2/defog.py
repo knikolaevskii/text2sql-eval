@@ -1,26 +1,23 @@
-import os
-from utils.regular_datasets import Text2SQLDataset
-from premsql.executors import SQLiteExecutor
+from utils.custom_datasets_defog import Text2SQLDataset
+from utils.custom_executors import SQLiteExecutor
 from utils.custom_evaluator import Text2SQLEvaluator
-from utils.custom_generators import Text2SQLGeneratorOpenRouter
+from utils.custom_generators import Text2SQLGeneratorAPI
 
 
 # Initialize the BirdBench Dataset
 bird_dataset = Text2SQLDataset(
-    dataset_name='bird', 
-    split="validation", 
-    force_download=False,
+    dataset_name='defog', 
+    split="questions_gen", 
     dataset_folder="source/datasets",
-).setup_dataset(num_rows=1,prompt_template="source/prompts/bird_prompt.md")
+).setup_dataset(prompt_template="source/prompts/defog_prompt.md")
 
 
 # Initialize the OpenRouter generator
-generator = Text2SQLGeneratorOpenRouter(
-    model_name="gpt-4o-mini",  # You can use any model from the mapping or full OpenRouter model ID
-    experiment_name="bird_gpt_o4_mini_openrouter_generators",
+generator = Text2SQLGeneratorAPI(
+    model_name="defog_sqlcoder_7b_2",  # Replace with your model name
+    experiment_name="defog_sqlcoder_7b_2",
     type="test",
-    openrouter_api_key="***REMOVED***",  # Will use OPENROUTER_API_KEY env var if None
-    data_base_type="sqlite" # or postgresql
+    api_base_url="http://0.0.0.0:7860/v1",  # Using root endpoint, client will append /completions
 )
 
 # Initialize executor
@@ -37,6 +34,7 @@ responses = generator.generate_and_save_results(
     max_retries=3,
 )
 
+# print(f"Generated {len(responses)} responses")
 
 # Define the evaluator
 evaluator = Text2SQLEvaluator(
@@ -48,7 +46,6 @@ evaluator = Text2SQLEvaluator(
 results = evaluator.execute(
     metric_name="accuracy",
     model_responses=responses,
-    filter_by="difficulty",
     meta_time_out=10
 )
 

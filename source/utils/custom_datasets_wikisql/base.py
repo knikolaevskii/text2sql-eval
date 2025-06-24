@@ -232,10 +232,8 @@ class Text2SQLBaseDataset(ABC):
         database_folder_name: str,
         json_file_name: str,
         data_schema_file: str = "./data/wikisql/test_wiki_sql_metadata.json",
-        prompt_template: str = "source/prompts/new_prompt.md",
         hf_token: Optional[str] = None,
     ):
-        self.prompt_template = prompt_template
         self.dataset_path = Path(dataset_path)
         self.database_folder_name = database_folder_name
         self.dataset = json.load(open(self.dataset_path / json_file_name, "r"))
@@ -277,10 +275,11 @@ class Text2SQLBaseDataset(ABC):
 
         if num_rows:
             self.dataset = self.dataset[:num_rows]
+        
+        if prompt_template is None:
+            template_to_use = "source/prompts/wikisql_prompt.md"
 
-        # Use the provided prompt_template or fall back to the instance's prompt_template
-        template_to_use = prompt_template or self.prompt_template
-
+        
         self.dataset = Text2SQLBaseInstance(dataset=self.dataset).apply_prompt(
             prompt_template=template_to_use,
             data_schema_file=self.data_schema_file

@@ -14,7 +14,6 @@ class Text2SQLDataset:
         dataset_name: str,
         split: str,
         dataset_folder: Optional[Union[str, Path]] = "./data",
-        prompt_template: str = "source/prompts/new_prompt.md",
         **kwargs
     ):
         assert dataset_name in ["bird", "spider", "wikisql"], ValueError(
@@ -28,7 +27,6 @@ class Text2SQLDataset:
         self._text2sql_dataset: Text2SQLBaseDataset = dataset_mapping[dataset_name](
             split=split,
             dataset_folder=dataset_folder,
-            prompt_template=prompt_template,
             **kwargs
         )
 
