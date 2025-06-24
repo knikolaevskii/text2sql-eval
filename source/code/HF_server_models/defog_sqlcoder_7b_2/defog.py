@@ -9,7 +9,7 @@ bird_dataset = Text2SQLDataset(
     dataset_name='defog', 
     split="questions_gen", 
     dataset_folder="source/datasets",
-).setup_dataset(prompt_template="source/prompts/defog_prompt.md")
+).setup_dataset(num_rows=20, prompt_template="source/prompts/defog_prompt.md")
 
 
 # Initialize the OpenRouter generator
@@ -17,7 +17,7 @@ generator = Text2SQLGeneratorAPI(
     model_name="defog_sqlcoder_7b_2",  # Replace with your model name
     experiment_name="defog_sqlcoder_7b_2",
     type="test",
-    api_base_url="http://0.0.0.0:7860/v1",  # Using root endpoint, client will append /completions
+    api_base_url="http://0.0.0.0:8000/v1",  # Using root endpoint, client will append /completions
 )
 
 # Initialize executor
@@ -46,7 +46,7 @@ evaluator = Text2SQLEvaluator(
 results = evaluator.execute(
     metric_name="accuracy",
     model_responses=responses,
-    meta_time_out=10
+    meta_time_out=10,
 )
 
 print("Evaluation Results:")

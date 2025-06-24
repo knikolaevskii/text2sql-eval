@@ -13,7 +13,6 @@ class WikiSQLDataset(Text2SQLBaseDataset):
         split: str,
         dataset_folder: Optional[Union[str, Path]] = "./data",
         data_schema_file: str = None,
-        prompt_template: str = "source/prompts/new_prompt.md",
         hf_token: Optional[str] = None,
     ):
         dataset_folder = Path(dataset_folder)
@@ -39,7 +38,6 @@ class WikiSQLDataset(Text2SQLBaseDataset):
             database_folder_name="database",
             json_file_name=json_file_name,
             data_schema_file=data_schema_file,
-            prompt_template=prompt_template,
             hf_token=hf_token,
         )
         logger.info("Loaded WikiSQL Dataset")
