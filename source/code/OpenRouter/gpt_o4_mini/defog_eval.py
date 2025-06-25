@@ -1,6 +1,6 @@
 from utils.custom_datasets_defog import Text2SQLDataset
-from utils.custom_executors import SQLiteExecutor
-from utils.custom_evaluator import Text2SQLEvaluator
+from utils.custom_executors_subsets import SQLiteExecutor
+from utils.custom_evaluator_subsets import Text2SQLEvaluator
 from utils.custom_generators import Text2SQLGeneratorOpenRouter
 
 
@@ -9,7 +9,7 @@ bird_dataset = Text2SQLDataset(
     dataset_name='defog', 
     split="questions_gen", 
     dataset_folder="source/datasets",
-).setup_dataset(prompt_template="source/prompts/defog_prompt.md")
+).setup_dataset(num_rows=20, prompt_template="source/prompts/defog_prompt.md")
 
 
 # Initialize the OpenRouter generator

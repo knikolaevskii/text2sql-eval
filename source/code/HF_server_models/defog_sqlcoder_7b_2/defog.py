@@ -1,6 +1,6 @@
 from utils.custom_datasets_defog import Text2SQLDataset
-from utils.custom_executors import SQLiteExecutor
-from utils.custom_evaluator import Text2SQLEvaluator
+from utils.custom_executors_subsets import SQLiteExecutor
+from utils.custom_evaluator_subsets import Text2SQLEvaluator
 from utils.custom_generators import Text2SQLGeneratorAPI
 
 
@@ -17,7 +17,7 @@ generator = Text2SQLGeneratorAPI(
     model_name="defog_sqlcoder_7b_2",  # Replace with your model name
     experiment_name="defog_sqlcoder_7b_2",
     type="test",
-    api_base_url="http://0.0.0.0:8000/v1",  # Using root endpoint, client will append /completions
+    api_base_url="http://0.0.0.0:7860/v1",  # Using root endpoint, client will append /completions
 )
 
 # Initialize executor
@@ -32,9 +32,10 @@ responses = generator.generate_and_save_results(
     postprocess=True,
     executor=executor,
     max_retries=3,
+    use_extended_api=True,
+    num_beams=4,
 )
 
-# print(f"Generated {len(responses)} responses")
 
 # Define the evaluator
 evaluator = Text2SQLEvaluator(

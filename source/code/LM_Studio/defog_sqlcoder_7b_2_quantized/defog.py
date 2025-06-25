@@ -1,6 +1,6 @@
 from utils.custom_datasets_defog import Text2SQLDataset
 from utils.custom_executors import SQLiteExecutor
-from utils.custom_evaluator import Text2SQLEvaluator
+from utils.custom_evaluator_subsets import Text2SQLEvaluator
 from utils.custom_generators import Text2SQLGeneratorAPI
 
 
@@ -9,13 +9,13 @@ bird_dataset = Text2SQLDataset(
     dataset_name='defog', 
     split="questions_gen", 
     dataset_folder="source/datasets",
-).setup_dataset(num_rows=10, prompt_template="source/prompts/defog_prompt.md")
+).setup_dataset(prompt_template="source/prompts/defog_prompt.md")
 
 
 # Initialize the OpenRouter generator
 generator = Text2SQLGeneratorAPI(
-    model_name="premAI_quantized",  # Replace with your model name
-    experiment_name="defog_premAI_quantized_LM_Studio",
+    model_name="sqlcoder_7b_2_quantized",  # Replace with your model name
+    experiment_name="sqlcoder_7b_2_quantized",
     type="test",
     api_base_url="http://localhost:1234/v1",  # Using root endpoint, client will append /completions
 )
@@ -34,7 +34,6 @@ responses = generator.generate_and_save_results(
     max_retries=3,
 )
 
-# print(f"Generated {len(responses)} responses")
 
 # Define the evaluator
 evaluator = Text2SQLEvaluator(

@@ -8,6 +8,7 @@ error free SQLite query based on the question asked. Please make sure:
 
 {instructions}
 
-# Question: {question}
+# Question:
+{question}
 
 # SQL: 
