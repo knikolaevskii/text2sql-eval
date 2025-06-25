@@ -187,14 +187,14 @@ class BaseExecutor(ABC):
         question_str = question if question is not None else ""
         
         # Check exact match first
-        exact = compare_df(gold["result_df"], prediction["result_df"], question_str)
+        # exact = compare_df(gold["result_df"], prediction["result_df"], question_str)
         
-        if exact:
-            return {
-                "result": 1,
-                "subset_match": 1,  # If exact match, subset is also true
-                "error": None,
-            }
+        # if exact:
+        #     return {
+        #         "result": 1,
+        #         "subset_match": 1,  # If exact match, subset is also true
+        #         "error": None,
+        #     }
         
         # Check subset match (gold is subset of prediction)
         subset = subset_df(gold["result_df"], prediction["result_df"], question_str)

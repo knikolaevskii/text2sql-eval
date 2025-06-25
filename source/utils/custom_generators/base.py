@@ -107,7 +107,7 @@ class Text2SQLGeneratorBase(ABC):
                 )
                 data_blob["prompt"] = error_prompt
                 error_already_found = True
-                
+
         return sql, first_attempt_failed, correction_successful
 
     def postprocess(self, output_string: str):

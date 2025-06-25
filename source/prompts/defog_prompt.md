@@ -1,14 +1,9 @@
-# Follow these instruction:
-You will be given schemas of tables of a database. Your job is to write correct
-error free SQLite query based on the question asked. Please make sure:
+### Task
+Generate a SQLite query to answer [QUESTION]{user_question}[/QUESTION]
 
-
-# Database and Table Schema:
+### Database Schema
+The query will run on a database with the following schema:
 {schemas}
 
-{instructions}
-
-# Question:
-{question}
-
-# SQL: 
+### Answer
+Given the database schema, here is the SQL query that answers [QUESTION]{user_question}[/QUESTION]

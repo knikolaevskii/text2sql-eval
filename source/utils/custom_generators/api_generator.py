@@ -186,8 +186,6 @@ class Text2SQLGeneratorAPI(Text2SQLGeneratorBase):
         extended_params = [k for k in request_params.keys() 
                         if k in {"num_beams", "repetition_penalty", "do_sample", 
                                 "length_penalty", "early_stopping", "no_repeat_ngram_size"}]
-        if extended_params:
-            print(f"🔧 Extended API: Using parameters: {extended_params}")
         
         # Make direct HTTP request to your server's /v1/completions endpoint
         response = requests.post(

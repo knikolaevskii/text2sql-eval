@@ -94,21 +94,19 @@ class SQLiteExecutor(BaseExecutor):
         if dsn_or_db_path.startswith("sqlite:///"):
             dsn_or_db_path = dsn_or_db_path.split("sqlite:///")[1]
         
-        
         conn = sqlite3.connect(dsn_or_db_path)
         cursor = conn.cursor()
 
         start_time = time.time()
         try:
-            # print("executing sql", sql)
             cursor.execute(sql)
             result = cursor.fetchall()
             colnames = [desc[0] for desc in cursor.description]
             df = pd.DataFrame(result, columns=colnames)
             error = None
         except Exception as e:
-            # print("error", e)
             result = None
+            df = pd.DataFrame()  # <- safely assign an empty DataFrame
             error = str(e)
 
         end_time = time.time()

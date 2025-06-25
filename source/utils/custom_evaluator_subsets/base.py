@@ -37,7 +37,7 @@ class Text2SQLEvaluator:
                     self.executor.match_sqls,
                     args=(generated_sql, gold_sql, dsn_or_db_path),
                 )
-                print(result)
+                # print(result)
             elif metric_name == "ves":
                 num_iterations = 10 if num_iterations is None else num_iterations
                 result = func_timeout(
