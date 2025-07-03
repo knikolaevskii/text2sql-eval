@@ -1,17 +1,17 @@
 import os
 from utils.regular_datasets import Text2SQLDataset
-from premsql.executors import SQLiteExecutor
-from utils.custom_evaluator import Text2SQLEvaluator
+from utils.custom_executors_subsets import SQLiteExecutor
+from utils.custom_evaluator_subsets import Text2SQLEvaluator
 from utils.custom_generators import Text2SQLGeneratorAPI
 
 
 # Initialize the BirdBench Dataset
-spider_dataset = Text2SQLDataset(
+bird_dataset = Text2SQLDataset(
     dataset_name='bird', 
     split="validation",
     force_download=False,
     dataset_folder="source/datasets",
-).setup_dataset(num_rows=10, prompt_template="source/prompts/bird_prompt.md")
+).setup_dataset(prompt_template="source/prompts/bird_prompt.md")
 
 
 # Initialize the OpenRouter generator
@@ -27,13 +27,15 @@ executor = SQLiteExecutor()
 
 # Get the responses with execution-guided decoding
 responses = generator.generate_and_save_results(
-    dataset=spider_dataset,
+    dataset=bird_dataset,
     temperature=0,
-    max_new_tokens=256,
-    force=True,
+    max_new_tokens=4000,
+    force=False,
     postprocess=True,
     executor=executor,
-    max_retries=3,
+    max_retries=2,
+    use_extended_api=True,
+    stop=[";", "```"],
 )
 
 
@@ -47,7 +49,7 @@ evaluator = Text2SQLEvaluator(
 results = evaluator.execute(
     metric_name="accuracy",
     model_responses=responses,
-    filter_by="db_id",
+    filter_by="difficulty",
     meta_time_out=10
 )
 

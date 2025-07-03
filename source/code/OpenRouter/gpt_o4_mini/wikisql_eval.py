@@ -1,6 +1,6 @@
 from utils.custom_datasets_wikisql import Text2SQLDataset
-from premsql.executors import SQLiteExecutor
-from utils.custom_evaluator import Text2SQLEvaluator
+from utils.custom_executors_subsets import SQLiteExecutor
+from utils.custom_evaluator_subsets import Text2SQLEvaluator
 from utils.custom_generators import Text2SQLGeneratorOpenRouter
 
 
@@ -9,7 +9,7 @@ wiki_dataset = Text2SQLDataset(
     split="test",
     dataset_folder="source/datasets",
     data_schema_file="source/datasets/wikisql/test_wiki_sql_metadata.json"
-).setup_dataset( custom_db_path="source/datasets/wikisql/database/test.db")
+).setup_dataset(num_rows=1500, custom_db_path="source/datasets/wikisql/database/test.db")
 
 # Initialize the OpenRouter generator
 generator = Text2SQLGeneratorOpenRouter(
@@ -30,7 +30,7 @@ responses = generator.generate_and_save_results(
     force=True,
     postprocess=True,
     executor=executor,
-    max_retries=3
+    max_retries=2
 )
 
 

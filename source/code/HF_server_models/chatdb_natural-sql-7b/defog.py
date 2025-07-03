@@ -14,10 +14,10 @@ defog_dataset = Text2SQLDataset(
 
 # Initialize the OpenRouter generator
 generator = Text2SQLGeneratorAPI(
-    model_name="defog_sqlcoder_7b_2",  # Replace with your model name
-    experiment_name="defog_sqlcoder_7b_2",
+    model_name="chatdb_natural-sql-7b",  # Replace with your model name
+    experiment_name="defog_chatdb_natural-sql-7b",
     type="test",
-    api_base_url="http://0.0.0.0:7860/v1",  # Using root endpoint, client will append /completions
+    api_base_url="http://0.0.0.0:8001/v1",  # Using root endpoint, client will append /completions
 )
 
 # Initialize executor
@@ -31,7 +31,7 @@ responses = generator.generate_and_save_results(
     force=True,
     postprocess=True,
     executor=executor,
-    max_retries=3,
+    max_retries=2,
     use_extended_api=True,
     stop=[";", "```"],
 )

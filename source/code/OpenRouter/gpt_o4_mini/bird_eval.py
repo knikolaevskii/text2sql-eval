@@ -1,7 +1,7 @@
 import os
 from utils.regular_datasets import Text2SQLDataset
-from premsql.executors import SQLiteExecutor
-from utils.custom_evaluator import Text2SQLEvaluator
+from utils.custom_executors_subsets import SQLiteExecutor
+from utils.custom_evaluator_subsets import Text2SQLEvaluator
 from utils.custom_generators import Text2SQLGeneratorOpenRouter
 
 
@@ -31,7 +31,7 @@ responses = generator.generate_and_save_results(
     dataset=bird_dataset,
     temperature=0,
     max_new_tokens=256,
-    force=True,
+    force=False,
     postprocess=True,
     executor=executor,
     max_retries=3,

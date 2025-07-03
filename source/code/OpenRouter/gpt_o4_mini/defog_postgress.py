@@ -1,38 +1,38 @@
 from utils.custom_datasets_defog import Text2SQLDataset
-from utils.custom_executors_subsets import SQLiteExecutor
+from utils.custom_executors_subsets import PostgresExecutor
 from utils.custom_evaluator_subsets import Text2SQLEvaluator
-from utils.custom_generators import Text2SQLGeneratorAPI
+from utils.custom_generators import Text2SQLGeneratorOpenRouter
 
 
 # Initialize the BirdBench Dataset
-defog_dataset = Text2SQLDataset(
+bird_dataset = Text2SQLDataset(
     dataset_name='defog', 
     split="questions_gen", 
     dataset_folder="source/datasets",
-).setup_dataset(prompt_template="source/prompts/defog_prompt.md")
+).setup_dataset(num_rows=2, prompt_template="source/prompts/defog_prompt.md")
 
 
 # Initialize the OpenRouter generator
-generator = Text2SQLGeneratorAPI(
-    model_name="defog_sqlcoder_7b_2",  # Replace with your model name
-    experiment_name="defog_sqlcoder_7b_2",
+generator = Text2SQLGeneratorOpenRouter(
+    model_name="gpt-4o-mini",  # You can use any model from the mapping or full OpenRouter model ID
+    experiment_name="defog_gpt_o4_mini_openrouter_generators",
     type="test",
-    api_base_url="http://0.0.0.0:7860/v1",  # Using root endpoint, client will append /completions
+    openrouter_api_key="***REMOVED***",  # Will use OPENROUTER_API_KEY env var if None
+    data_base_type="sqlite" # or postgresql
 )
 
 # Initialize executor
-executor = SQLiteExecutor()
+executor = PostgresExecutor()
 
 # Get the responses with execution-guided decoding
 responses = generator.generate_and_save_results(
-    dataset=defog_dataset,
+    dataset=bird_dataset,
     temperature=0,
     max_new_tokens=4000,
     force=True,
     postprocess=True,
     executor=executor,
-    max_retries=3,
-    use_extended_api=True,
+    max_retries=2,
     stop=[";", "```"],
 )
 

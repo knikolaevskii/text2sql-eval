@@ -1,24 +1,21 @@
-from utils.custom_datasets_defog import Text2SQLDataset
+from utils.custom_datasets_wikisql import Text2SQLDataset
 from utils.custom_executors_subsets import SQLiteExecutor
 from utils.custom_evaluator_subsets import Text2SQLEvaluator
-from utils.custom_generators import Text2SQLGeneratorOpenRouter
+from utils.custom_generators import WikiSQLText2SQLGeneratorAPI
 
 
-# Initialize the BirdBench Dataset
-bird_dataset = Text2SQLDataset(
-    dataset_name='defog', 
-    split="questions_gen", 
+wiki_dataset = Text2SQLDataset(
+    dataset_name='wikisql',
+    split="test",
     dataset_folder="source/datasets",
-).setup_dataset(num_rows=20, prompt_template="source/prompts/defog_prompt.md")
-
+).setup_dataset(custom_db_path="source/datasets/wikisql/database/test.db")
 
 # Initialize the OpenRouter generator
-generator = Text2SQLGeneratorOpenRouter(
-    model_name="gpt-4o-mini",  # You can use any model from the mapping or full OpenRouter model ID
-    experiment_name="defog_gpt_o4_mini_openrouter_generators",
+generator = WikiSQLText2SQLGeneratorAPI(
+    model_name="chatdb_natural-sql-7b",  # Replace with your model name
+    experiment_name="wikisql_chatdb_natural-sql-7b",
     type="test",
-    openrouter_api_key="***REMOVED***",  # Will use OPENROUTER_API_KEY env var if None
-    data_base_type="sqlite" # or postgresql
+    api_base_url="http://0.0.0.0:8001/v1",  # Using root endpoint, client will append /completions
 )
 
 # Initialize executor
@@ -26,13 +23,14 @@ executor = SQLiteExecutor()
 
 # Get the responses with execution-guided decoding
 responses = generator.generate_and_save_results(
-    dataset=bird_dataset,
+    dataset=wiki_dataset,
     temperature=0,
     max_new_tokens=4000,
     force=True,
     postprocess=True,
     executor=executor,
-    max_retries=3,
+    max_retries=2,
+    use_extended_api=True,
     stop=[";", "```"],
 )
 
@@ -47,7 +45,7 @@ evaluator = Text2SQLEvaluator(
 results = evaluator.execute(
     metric_name="accuracy",
     model_responses=responses,
-    meta_time_out=10,
+    meta_time_out=10
 )
 
 print("Evaluation Results:")

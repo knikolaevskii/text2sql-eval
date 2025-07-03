@@ -1,7 +1,7 @@
 import os
 from utils.regular_datasets import Text2SQLDataset
-from premsql.executors import SQLiteExecutor
-from utils.custom_evaluator import Text2SQLEvaluator
+from utils.custom_executors_subsets import SQLiteExecutor
+from utils.custom_evaluator_subsets import Text2SQLEvaluator
 from utils.custom_generators import Text2SQLGeneratorOpenRouter
 
 
@@ -49,7 +49,6 @@ evaluator = Text2SQLEvaluator(
 results = evaluator.execute(
     metric_name="accuracy",
     model_responses=responses,
-    filter_by="db_id",
     meta_time_out=10
 )
 

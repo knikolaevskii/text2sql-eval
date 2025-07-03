@@ -1,7 +1,7 @@
 import os
 from utils.regular_datasets import Text2SQLDataset
-from premsql.executors import SQLiteExecutor
-from utils.custom_evaluator import Text2SQLEvaluator
+from utils.custom_executors_subsets import SQLiteExecutor
+from utils.custom_evaluator_subsets import Text2SQLEvaluator
 from utils.custom_generators import Text2SQLGeneratorAPI
 
 
@@ -11,7 +11,7 @@ spider_dataset = Text2SQLDataset(
     split="validation", 
     force_download=False,
     dataset_folder="source/datasets",
-).setup_dataset(num_rows=10, prompt_template="source/prompts/spider_prompt.md")
+).setup_dataset( prompt_template="source/prompts/spider_prompt.md")
 
 
 # Initialize the OpenRouter generator
@@ -19,7 +19,7 @@ generator = Text2SQLGeneratorAPI(
     model_name="defog_sqlcoder_7b_2",  # Replace with your model name
     experiment_name="spider_defog_sqlcoder_7b_2",
     type="test",
-    api_base_url="http://localhost:1234/v1",  # Using root endpoint, client will append /completions
+    api_base_url="http://0.0.0.0:7860/v1",  # Using root endpoint, client will append /completions
 )
 
 # Initialize executor
@@ -29,11 +29,13 @@ executor = SQLiteExecutor()
 responses = generator.generate_and_save_results(
     dataset=spider_dataset,
     temperature=0,
-    max_new_tokens=256,
+    max_new_tokens=4000,
     force=True,
     postprocess=True,
     executor=executor,
     max_retries=3,
+    use_extended_api=True,
+    stop=[";", "```"],
 )
 
 
@@ -47,7 +49,6 @@ evaluator = Text2SQLEvaluator(
 results = evaluator.execute(
     metric_name="accuracy",
     model_responses=responses,
-    filter_by="db_id",
     meta_time_out=10
 )
 

@@ -16,12 +16,10 @@ class Text2SQLDataset:
         dataset_folder: Optional[Union[str, Path]] = "./data",
         **kwargs
     ):
-        assert dataset_name in ["bird", "spider", "wikisql"], ValueError(
-            "Dataset should be one of bird, spider, wikisql"
+        assert dataset_name in ["wikisql"], ValueError(
+            "Dataset should be wikisql"
         )
         dataset_mapping = {
-            # "bird": BirdDataset,
-            # "spider": SpiderUnifiedDataset,
             "wikisql": WikiSQLDataset,
         }
         self._text2sql_dataset: Text2SQLBaseDataset = dataset_mapping[dataset_name](

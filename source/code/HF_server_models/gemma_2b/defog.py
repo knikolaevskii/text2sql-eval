@@ -9,15 +9,15 @@ defog_dataset = Text2SQLDataset(
     dataset_name='defog', 
     split="questions_gen", 
     dataset_folder="source/datasets",
-).setup_dataset(prompt_template="source/prompts/defog_prompt.md")
+).setup_dataset(num_rows=2,prompt_template="source/prompts/defog_prompt.md")
 
 
 # Initialize the OpenRouter generator
 generator = Text2SQLGeneratorAPI(
-    model_name="defog_sqlcoder_7b_2",  # Replace with your model name
-    experiment_name="defog_sqlcoder_7b_2",
+    model_name="defog_gemma_2b",  # Replace with your model name
+    experiment_name="defog_gemma_2b",
     type="test",
-    api_base_url="http://0.0.0.0:7860/v1",  # Using root endpoint, client will append /completions
+    api_base_url="http://0.0.0.0:8001/v1",  # Using root endpoint, client will append /completions
 )
 
 # Initialize executor
@@ -31,7 +31,7 @@ responses = generator.generate_and_save_results(
     force=True,
     postprocess=True,
     executor=executor,
-    max_retries=3,
+    max_retries=2,
     use_extended_api=True,
     stop=[";", "```"],
 )

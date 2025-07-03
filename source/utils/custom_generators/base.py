@@ -86,7 +86,7 @@ class Text2SQLGeneratorBase(ABC):
             )
             
             try:
-                error = func_timeout(15, executor.execute_sql, args=(sql, data_blob["db_path"]))["error"] 
+                error = func_timeout(10, executor.execute_sql, args=(sql, data_blob["db_path"]))["error"] 
             except FunctionTimedOut:
                 error = "Timeout"
 

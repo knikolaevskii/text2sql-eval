@@ -9,7 +9,7 @@ bird_dataset = Text2SQLDataset(
     dataset_name='defog', 
     split="questions_gen", 
     dataset_folder="source/datasets",
-).setup_dataset(num_rows=20, prompt_template="source/prompts/defog_prompt.md")
+).setup_dataset(prompt_template="source/prompts/defog_prompt.md")
 
 
 # Initialize the OpenRouter generator
