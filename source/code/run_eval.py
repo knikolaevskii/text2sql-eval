@@ -67,7 +67,18 @@ class DatasetSpec:
     # label; Spider only has db_id; Defog and WikiSQL have neither worth
     # grouping on, so they report a single overall number.
     filter_by: Optional[str] = None
+    # String values may reference {dataset_folder}; it is substituted at run
+    # time so these stay correct when --dataset-folder points somewhere other
+    # than the default (test fixtures, a scratch copy, an external drive).
     setup_kwargs: dict = field(default_factory=dict)
+
+    def resolved_setup_kwargs(self, dataset_folder: str) -> dict:
+        return {
+            key: value.format(dataset_folder=dataset_folder)
+            if isinstance(value, str)
+            else value
+            for key, value in self.setup_kwargs.items()
+        }
 
 
 @dataclass(frozen=True)
@@ -100,7 +111,7 @@ DATASETS: dict[str, DatasetSpec] = {
         prompt_template="wikisql_prompt.md",
         # WikiSQL ships one combined SQLite file rather than a database per
         # db_id, so every row's db_path is redirected at it.
-        setup_kwargs={"custom_db_path": "source/datasets/wikisql/database/test.db"},
+        setup_kwargs={"custom_db_path": "{dataset_folder}/wikisql/database/test.db"},
     ),
 }
 
@@ -187,8 +198,10 @@ def build_generator(args, dataset_spec: DatasetSpec, experiment_name: str):
 
 def build_executor(args):
     if args.executor == "postgres":
-        if not args.db_name:
-            sys.exit("--executor postgres requires --db-name")
+        # db_name is optional: without it the executor takes the database
+        # from each row's db_id, which is what a benchmark spanning several
+        # databases (Defog covers 11) needs. Passing it forces every row at
+        # one database instead.
         return PostgresExecutor(db_name=args.db_name)
     return SQLiteExecutor()
 
@@ -235,7 +248,12 @@ def parse_args(argv=None):
     )
 
     p.add_argument("--executor", default="sqlite", choices=["sqlite", "postgres"])
-    p.add_argument("--db-name", help="Database name, required for --executor postgres")
+    p.add_argument(
+        "--db-name",
+        help="Force every row at one Postgres database. Omit to take the "
+             "database from each row's db_id, which is what a benchmark "
+             "spanning several databases needs.",
+    )
 
     p.add_argument("--metric", default="accuracy", choices=["accuracy", "ves"])
     p.add_argument("--filter-by", help="Override the dataset's default breakdown column")
@@ -287,7 +305,7 @@ def main(argv=None) -> int:
     ).setup_dataset(
         num_rows=args.num_rows,
         prompt_template=prompt_template,
-        **spec.setup_kwargs,
+        **spec.resolved_setup_kwargs(args.dataset_folder),
     )
 
     generator = build_generator(args, spec, experiment_name)

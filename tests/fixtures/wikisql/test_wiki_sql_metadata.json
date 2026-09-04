@@ -1,0 +1,22 @@
+{
+  "table_metadata": {
+    "table_1_10015132_16": [
+      {
+        "data_type": "text",
+        "column_name": "col0",
+        "column_description": "City"
+      },
+      {
+        "data_type": "text",
+        "column_name": "col1",
+        "column_description": "Country"
+      },
+      {
+        "data_type": "real",
+        "column_name": "col2",
+        "column_description": "Population"
+      }
+    ]
+  },
+  "glossary": ""
+}

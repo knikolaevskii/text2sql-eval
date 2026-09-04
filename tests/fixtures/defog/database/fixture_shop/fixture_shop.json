@@ -1,0 +1,33 @@
+{
+  "table_metadata": {
+    "products": [
+      {
+        "column_name": "id",
+        "data_type": "integer"
+      },
+      {
+        "column_name": "name",
+        "data_type": "text"
+      },
+      {
+        "column_name": "price",
+        "data_type": "integer"
+      }
+    ],
+    "orders": [
+      {
+        "column_name": "id",
+        "data_type": "integer"
+      },
+      {
+        "column_name": "product_id",
+        "data_type": "integer"
+      },
+      {
+        "column_name": "quantity",
+        "data_type": "integer"
+      }
+    ]
+  },
+  "glossary": ""
+}

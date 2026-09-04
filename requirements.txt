@@ -79,6 +79,7 @@ platformdirs==4.3.8
 premai==0.3.107
 premsql @ git+https://github.com/knikolaevskii/premsql-text2sql-fork.git@text2sql-extensions
 propcache==0.3.1
+psycopg2-binary==2.9.12  # Postgres driver for the Defog eval
 protobuf==6.31.1
 psutil==7.0.0
 pyarrow==20.0.0

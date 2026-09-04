@@ -52,8 +52,41 @@ this project needed — see [Extensions to premsql](#extensions-to-premsql).
 | `runpod` | `http://127.0.0.1:8000/v1` | Model served on a RunPod GPU pod |
 | `local` | in-process | Loaded directly with transformers, no server |
 
-`wikisql` and `defog` do not auto-download — they expect files already present
-under `source/datasets/`.
+`wikisql` and `defog` do not auto-download. Convert them from their upstream
+repositories first:
+
+```bash
+# WikiSQL: 13,640 questions across 5,230 tables
+git clone https://github.com/salesforce/WikiSQL /tmp/WikiSQL
+tar -xvjf /tmp/WikiSQL/data.tar.bz2 -C /tmp/WikiSQL
+python source/code/prepare_datasets.py wikisql --source /tmp/WikiSQL
+
+# Defog: 210 questions across 11 databases
+git clone https://github.com/defog-ai/defog-data /tmp/defog-data
+git clone https://github.com/defog-ai/sql-eval /tmp/sql-eval
+python source/code/prepare_datasets.py defog \
+    --defog-data /tmp/defog-data --sql-eval /tmp/sql-eval
+```
+
+Defog is distributed as Postgres dumps and is evaluated against a live server,
+so load the databases too:
+
+```bash
+cd /tmp/defog-data && DBUSER="$(whoami)" PGDATABASE=postgres ./setup.sh
+```
+
+`DBUSER`/`PGDATABASE` are needed on installs where the role is your own
+username rather than `postgres` (the Homebrew default) — the script otherwise
+connects as a `postgres` role to a database of the same name, and fails if
+neither exists. Put matching values in `.env` as `POSTGRES_*`, then:
+
+```bash
+python source/code/run_eval.py --dataset defog --backend openrouter \
+    --model gpt-4o-mini --executor postgres --filter-by query_category
+```
+
+The database for each question is taken from its `db_id`, so one run covers
+all 11; `--db-name` forces every row at a single database instead.
 
 ## Metrics
 

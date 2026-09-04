@@ -1,0 +1,12 @@
+[
+  {
+    "question": "what is the country for berlin",
+    "query": "SELECT col1 AS result FROM table_1_10015132_16 WHERE col0 = 'berlin';",
+    "db_id": "table_1_10015132_16"
+  },
+  {
+    "question": "what is the population of madrid",
+    "query": "SELECT col2 AS result FROM table_1_10015132_16 WHERE col0 = 'madrid';",
+    "db_id": "table_1_10015132_16"
+  }
+]
