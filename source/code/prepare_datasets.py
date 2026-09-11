@@ -10,12 +10,11 @@ Run from the repository root.
 
 WikiSQL
 -------
-Clone the benchmark and unpack its data, then convert:
+Fetch and convert in one step:
 
-    git clone https://github.com/salesforce/WikiSQL /tmp/WikiSQL
-    tar -xvjf /tmp/WikiSQL/data.tar.bz2 -C /tmp/WikiSQL
+    python source/code/prepare_datasets.py wikisql --auto
 
-    python source/code/prepare_datasets.py wikisql --source /tmp/WikiSQL
+Or pass --source to use an existing clone.
 
 WikiSQL does not ship SQL strings. Each question carries a structured form
 ({sel, agg, conds}) which is rendered into SQL here, following the same rules
@@ -29,27 +28,19 @@ the benchmark's own evaluator uses:
     This is a property of the benchmark, not a stylistic choice: predictions
     that differ only by case would otherwise be scored wrong, which is what
     the WikiSQL generator's lowercasing postprocessing compensates for.
-  - questions containing characters outside a conservative safe set are
-    skipped, and the count is reported
+  - questions are kept regardless of punctuation. The original conversion
+    dropped 2238 of 15878 for containing characters like "/" or "#", which
+    biased the subset; nothing here needs that guard.
 
 Defog
 -----
-Clone both repositories, then convert:
+Fetch, convert, and load the 11 Postgres databases in one step:
 
-    git clone https://github.com/defog-ai/defog-data /tmp/defog-data
-    git clone https://github.com/defog-ai/sql-eval /tmp/sql-eval
+    python source/code/prepare_datasets.py defog --auto --load-db
 
-    python source/code/prepare_datasets.py defog \
-        --defog-data /tmp/defog-data --sql-eval /tmp/sql-eval
-
-Defog is distributed as Postgres dumps, and evaluation runs against a live
-Postgres server. Load the databases first:
-
-    cd /tmp/defog-data && ./setup.sh
-
-That creates 11 databases using DBUSER/DBPASSWORD/DBHOST/DBPORT (defaulting
-to postgres/postgres/localhost/5432); put matching values in .env as
-POSTGRES_* so the executor can reach them. Then:
+--load-db drops and recreates those databases and needs a running server; it
+picks the right role automatically. Put matching values in .env as POSTGRES_*,
+then:
 
     python source/code/run_eval.py --dataset defog --backend openrouter \
         --model gpt-4o-mini --executor postgres --num-rows 10
@@ -85,7 +76,6 @@ OUT_ROOT = Path("source/datasets")
 AGG_OPS = ["", "MAX", "MIN", "COUNT", "SUM", "AVG"]
 COND_OPS = ["=", ">", "<", "OP"]
 
-SAFE_QUESTION = re.compile(r"^[A-Za-z0-9 .,!?'\"()\[\]{}:;\-]+$")
 NUMBER_RE = re.compile(r"[-+]?\d*\.?\d+")
 
 
@@ -257,11 +247,20 @@ def prepare_wikisql(source: Path, split: str) -> None:
         for line in handle:
             entry = json.loads(line)
             question = entry["question"].lower()
-            if not SAFE_QUESTION.match(question):
-                skipped += 1
-                continue
+            # No character filtering here on purpose. The original conversion
+            # dropped any question containing characters outside a narrow
+            # safe-list, which removed 2238 of 15878 test questions (14%) —
+            # ordinary ones like "how many different college/junior/club teams
+            # ..." or "list the # for ships commissioned on december 18, 1965",
+            # rejected for containing "/" or "#". That guard was needed because
+            # the original built SQL by substituting values into placeholder
+            # strings; here the question only ever reaches a prompt, and the
+            # values that do reach SQL are escaped by sql_literal(). Filtering
+            # would just make the benchmark subset non-standard and biased
+            # against questions containing punctuation.
             table = table_name_for(entry["table_id"])
             if table not in types_by_table:
+                # Genuinely unusable: no schema means no query can be built.
                 skipped += 1
                 continue
             rows.append(
@@ -282,7 +281,7 @@ def prepare_wikisql(source: Path, split: str) -> None:
 
     print(f"wikisql -> {out}")
     print(f"  {len(rows)} questions across {len(metadata)} tables")
-    print(f"  {skipped} skipped (unsafe characters or missing table)")
+    print(f"  {skipped} skipped (no schema available for the table)")
     print(f"  copied {db_file.name} ({db_file.stat().st_size / 1e6:.1f} MB)")
 
 
