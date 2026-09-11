@@ -102,4 +102,5 @@ else:
 print()
 print("ALL SETUP CHECKS PASSED")
 print("Next: put a real key in .env as OPENROUTER_API_KEY, then run")
-print("  .venv/bin/python source/code/OpenRouter/gpt_o4_mini/bird_eval.py")
+print("  .venv/bin/python source/code/run_eval.py \\")
+print("      --dataset bird --backend openrouter --model gpt-4o-mini --num-rows 10")

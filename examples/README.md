@@ -86,10 +86,20 @@ full OpenRouter model id such as `anthropic/claude-3.5-sonnet`.
 ## 2. Self-hosted inference server (`--backend hf`)
 
 For a model you serve yourself. The runner talks to it over HTTP, so anything
-exposing an **OpenAI-compatible `/v1/completions` endpoint** works — vLLM,
+exposing an **OpenAI-compatible `/v1/completions` endpoint** works —
+[hf_model_server](https://github.com/knikolaevskii/hf_model_server), vLLM,
 text-generation-inference, or LM Studio.
 
-**Setup** — start a server first. With vLLM, for example:
+**Setup** — start a server first. Using
+[hf_model_server](https://github.com/knikolaevskii/hf_model_server), a
+companion project built for this (CUDA-optimised, dynamic model switching,
+defaults to the same port this backend expects):
+
+```bash
+python hf_server.py --model premai-io/prem-1B-SQL --port 7860
+```
+
+Or with vLLM:
 
 ```bash
 vllm serve premai-io/prem-1B-SQL --port 7860
@@ -138,6 +148,18 @@ which only changes the default URL:
 | `lmstudio` | `http://localhost:1234/v1`    |
 | `runpod`   | `http://127.0.0.1:8000/v1`    |
 | `local`    | in-process, no server needed  |
+
+For **LM Studio**, load a model and start its server (Developer tab → Start
+Server), then pass the identifier LM Studio shows — not the Hugging Face repo
+id, which it won't recognise:
+
+```bash
+.venv/bin/python source/code/run_eval.py \
+    --dataset bird --backend lmstudio --model prem-1b-sql --num-rows 10
+```
+
+`runpod`'s default assumes an SSH tunnel forwarding the pod's port 8000 to
+localhost; pass `--api-base-url` if you reach it another way.
 
 `--backend local` loads the model with transformers in the same process, so it
 needs no server at all — useful for a small model on a laptop:

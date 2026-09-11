@@ -8,40 +8,90 @@ It compares models across four benchmarks and five serving backends through one
 command, so the same evaluation can be pointed at a hosted API, a self-hosted
 inference server, or a model loaded locally.
 
-```bash
-python source/code/run_eval.py --dataset bird --backend openrouter \
-    --model gpt-4o-mini --num-rows 300
-```
+## Benchmarks
 
-```
-results
-------------------------------------------------------------
-  challenging     39.39%  exact=13    subset=1     logic_err=18    db_err=1      n=33
-  moderate        31.63%  exact=31    subset=4     logic_err=58    db_err=5      n=98
-  simple          52.66%  exact=89    subset=10    logic_err=65    db_err=5      n=169
-  overall         44.33%  exact=133   subset=15    logic_err=141   db_err=11     n=300
-```
+| Benchmark | Split | Questions |
+|-----------|-------|----------:|
+| WikiSQL | test | 15,878 |
+| BIRD | validation | 1,534 |
+| Spider | validation | 1,034 |
+| Defog | questions_gen | 210 |
 
-## Measured results
+Use `--num-rows` to evaluate a sample rather than the full split.
 
-`gpt-4o-mini` via OpenRouter, execution accuracy, greedy decoding:
+## Results
 
-| Benchmark | Accuracy | Exact | Subset | Logic err | DB err | n |
-|-----------|---------:|------:|-------:|----------:|-------:|--:|
-| Spider | 73.33% | 220 | 23 | 56 | 1 | 300 |
-| Defog | 82.86% | 174 | 11 | 19 | 6 | 210 *(full set)* |
-| WikiSQL | 62.33% | 187 | 11 | 102 | 0 | 300 |
-| BIRD | 44.33% | 133 | 15 | 141 | 11 | 300 |
+This suite was built for a bachelor thesis at Vrije Universiteit Amsterdam,
+*Benchmarking Small LLMs for SQL Generation*,
+which asked which small open-weight models are good enough to replace a
+proprietary API when the data can't leave the building. Models that run on
+customer hardware in an air-gapped environment avoid sending sensitive
+database content to a third party, so the practical question is how much
+accuracy that costs.
 
-BIRD is the hardest of the four by design, and the spread here matches that:
-it pairs large multi-table schemas with questions that depend on external
-knowledge. Its per-difficulty split (simple 52.66%, moderate 31.63%) tracks
-the benchmark's own labels.
+Four models, four benchmarks, 4,278 questions:
 
-Two caveats worth stating plainly. Sample sizes are 300 rows rather than the
-full split for BIRD, Spider and WikiSQL, so treat these as indicative rather
-than leaderboard figures. And hosted providers are not deterministic even at
-`temperature=0`, so repeated runs move by a few points.
+| Model | Params | Execution accuracy | Execution error rate | Error correction rate |
+|-------|-------:|-------------------:|---------------------:|----------------------:|
+| GPT-4o mini *(proprietary, reference)* | — | **61.71%** | **1.17%** | **79.22%** |
+| Natural-SQL-7B | 6.9B | 46.61% | 13.91% | 66.56% |
+| Prem-1B-SQL | 1.3B | 42.64% | 10.33% | 43.75% |
+| SQLCoder-2-7b | 6.7B | 31.51% | 40.91% | 1.34% |
+
+**Execution accuracy** is the share of generated queries whose results match
+the gold query's. **Execution error rate** is the share that fail to run at
+all. **Error correction rate** is the share of first-attempt failures that
+execution-guided decoding recovered — the retry loop above, measured.
+
+### Per dataset
+
+Execution accuracy — correct / total:
+
+| Model | Defog | Spider | BIRD | WikiSQL |
+|-------|------:|-------:|-----:|--------:|
+| GPT-4o mini | **82.86%** (174/210) | 74.85% (774/1034) | **30.25%** (464/1534) | **81.87%** (1228/1500) |
+| Natural-SQL-7B | 53.81% (113/210) | 68.09% (704/1034) | 23.86% (366/1534) | 54.07% (811/1500) |
+| Prem-1B-SQL | 41.43% (87/210) | **75.05%** (776/1034) | 26.40% (405/1534) | 37.07% (556/1500) |
+| SQLCoder-2-7b | 55.24% (116/210) | 50.19% (519/1034) | 11.93% (183/1534) | 35.33% (530/1500) |
+
+The proprietary reference wins overall, but not on every dataset, and the gap
+is narrower than the parameter difference suggests. Prem-1B-SQL edges out
+GPT-4o mini on Spider — 776 correct against 774 — at 1.3B parameters. Among
+the open-weight models Natural-SQL-7B is strongest overall, and BIRD is where
+all four struggle most, none clearing 31%.
+
+SQLCoder-2-7b shows why accuracy alone is misleading. On Defog it scores
+55.24%, ahead of Natural-SQL-7B's 53.81%, which looks competitive. But across
+all four benchmarks 40.91% of its queries fail to execute and it recovers from
+1.34% of those failures — so its output is far less usable than its accuracy
+suggests. That is the argument for measuring all three metrics.
+
+## How it works
+
+![Evaluation pipeline](docs/architecture.png)
+
+A dataset is assembled from three inputs — the gold query and question, the
+database schema, and a prompt template — into a preprocessed dataset **①**. The
+generator sends each prompt to a model and collects the query it returns,
+writing dataset rows plus generated queries to **②** (`predict.json`). The
+executor then runs both the gold and the predicted query against the real
+database, the evaluator compares their result sets, and the scores land in
+**③** (`accuracy.json` and `predict_eval.json`).
+
+Checkpoint ② is why a rerun of the same dataset/backend/model makes no model
+calls: if that file exists it's reused verbatim. Pass `--force` to regenerate.
+
+### Execution-guided decoding
+
+![Execution-guided decoding](docs/execution-guided-decoding.png)
+
+When an executor is supplied, generation isn't a single shot. A query that
+fails to execute is fed back into the prompt along with its error message, and
+the model tries again, up to `--max-retries` attempts. Only a query that
+executes cleanly — or the last attempt — is kept.
+
+This is what produces the correction statistics at the end of a run ("first try
+failed / managed to correct"), and `--no-execution-guided` turns it off.
 
 ## What this is built on
 
@@ -50,9 +100,9 @@ PremAI, which provides the core dataset/generator/executor/evaluator
 abstractions. The library is used through a fork that adds the capabilities
 this project needed — see [Extensions to premsql](#extensions-to-premsql).
 
-> Note: upstream premsql does not publish a license file, so this repository
-> depends on the fork privately rather than redistributing modified copies of
-> its source.
+premsql is MIT-licensed. Its repository states this in the README but ships no
+`LICENSE` file, so the fork adds one carrying MIT forward with attribution to
+both PremAI and this project.
 
 ## Supported matrix
 
@@ -70,6 +120,21 @@ this project needed — see [Extensions to premsql](#extensions-to-premsql).
 | `lmstudio` | `http://localhost:1234/v1` | LM Studio, typically quantized models |
 | `runpod` | `http://127.0.0.1:8000/v1` | Model served on a RunPod GPU pod |
 | `local` | in-process | Loaded directly with transformers, no server |
+
+Any server exposing an OpenAI-compatible `/v1/completions` endpoint works with
+the `hf`, `lmstudio` and `runpod` backends — they differ only in default URL.
+[hf_model_server](https://github.com/knikolaevskii/hf_model_server) is a
+companion project for this: a CUDA-optimised Hugging Face model server with
+OpenAI-compatible endpoints and dynamic model switching, for running models on
+a VPS or GPU box. It defaults to port 7860, which is why `--backend hf` does
+too.
+
+```bash
+python hf_server.py --model premai-io/prem-1B-SQL --port 7860
+
+python source/code/run_eval.py --dataset bird --backend hf \
+    --model premai-io/prem-1B-SQL --num-rows 100
+```
 
 `wikisql` and `defog` have no downloader — they aren't distributed in a
 runnable form. WikiSQL ships no SQL at all (only a structured
@@ -141,11 +206,17 @@ query against the real database:
 .venv/bin/python source/code/check_setup.py
 ```
 
-Then run an evaluation:
+Then run an evaluation — either against a hosted model, or entirely locally
+with no API key:
 
 ```bash
+# hosted, needs OPENROUTER_API_KEY
 .venv/bin/python source/code/run_eval.py \
     --dataset bird --backend openrouter --model gpt-4o-mini --num-rows 10
+
+# local, no key and no server — downloads the model on first run
+.venv/bin/python source/code/run_eval.py \
+    --dataset bird --backend local --model premai-io/prem-1B-SQL --num-rows 10
 ```
 
 See [`examples/`](examples/) for worked walkthroughs of the OpenRouter and
