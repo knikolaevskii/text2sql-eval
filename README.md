@@ -10,19 +10,38 @@ inference server, or a model loaded locally.
 
 ```bash
 python source/code/run_eval.py --dataset bird --backend openrouter \
-    --model gpt-4o-mini --num-rows 100
+    --model gpt-4o-mini --num-rows 300
 ```
 
 ```
 results
 ------------------------------------------------------------
-  challenging     31.03%  exact=9     subset=2     logic_err=15    db_err=3      n=29
-  moderate        43.75%  exact=21    subset=4     logic_err=18    db_err=5      n=48
-  simple          58.49%  exact=31    subset=3     logic_err=14    db_err=5      n=53
-  overall         48.15%  exact=61    subset=9     logic_err=47    db_err=13     n=130
+  challenging     39.39%  exact=13    subset=1     logic_err=18    db_err=1      n=33
+  moderate        31.63%  exact=31    subset=4     logic_err=58    db_err=5      n=98
+  simple          52.66%  exact=89    subset=10    logic_err=65    db_err=5      n=169
+  overall         44.33%  exact=133   subset=15    logic_err=141   db_err=11     n=300
 ```
 
-*(shape of the output; numbers depend on the model and row count)*
+## Measured results
+
+`gpt-4o-mini` via OpenRouter, execution accuracy, greedy decoding:
+
+| Benchmark | Accuracy | Exact | Subset | Logic err | DB err | n |
+|-----------|---------:|------:|-------:|----------:|-------:|--:|
+| Spider | 73.33% | 220 | 23 | 56 | 1 | 300 |
+| Defog | 82.86% | 174 | 11 | 19 | 6 | 210 *(full set)* |
+| WikiSQL | 62.33% | 187 | 11 | 102 | 0 | 300 |
+| BIRD | 44.33% | 133 | 15 | 141 | 11 | 300 |
+
+BIRD is the hardest of the four by design, and the spread here matches that:
+it pairs large multi-table schemas with questions that depend on external
+knowledge. Its per-difficulty split (simple 52.66%, moderate 31.63%) tracks
+the benchmark's own labels.
+
+Two caveats worth stating plainly. Sample sizes are 300 rows rather than the
+full split for BIRD, Spider and WikiSQL, so treat these as indicative rather
+than leaderboard figures. And hosted providers are not deterministic even at
+`temperature=0`, so repeated runs move by a few points.
 
 ## What this is built on
 
