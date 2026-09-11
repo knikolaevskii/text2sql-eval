@@ -52,33 +52,28 @@ this project needed — see [Extensions to premsql](#extensions-to-premsql).
 | `runpod` | `http://127.0.0.1:8000/v1` | Model served on a RunPod GPU pod |
 | `local` | in-process | Loaded directly with transformers, no server |
 
-`wikisql` and `defog` do not auto-download. Convert them from their upstream
-repositories first:
+`wikisql` and `defog` have no downloader — they aren't distributed in a
+runnable form. WikiSQL ships no SQL at all (only a structured
+`{sel, agg, conds}` form that has to be rendered into queries), and Defog ships
+Postgres dumps that must be loaded into a server. `prepare_datasets.py` handles
+both:
 
 ```bash
-# WikiSQL: 13,640 questions across 5,230 tables
-git clone https://github.com/salesforce/WikiSQL /tmp/WikiSQL
-tar -xvjf /tmp/WikiSQL/data.tar.bz2 -C /tmp/WikiSQL
-python source/code/prepare_datasets.py wikisql --source /tmp/WikiSQL
+# clones the benchmark, unpacks it, converts 13,640 questions
+python source/code/prepare_datasets.py wikisql --auto
 
-# Defog: 210 questions across 11 databases
-git clone https://github.com/defog-ai/defog-data /tmp/defog-data
-git clone https://github.com/defog-ai/sql-eval /tmp/sql-eval
-python source/code/prepare_datasets.py defog \
-    --defog-data /tmp/defog-data --sql-eval /tmp/sql-eval
+# clones both repos, converts 210 questions, loads the 11 Postgres databases
+python source/code/prepare_datasets.py defog --auto --load-db
 ```
 
-Defog is distributed as Postgres dumps and is evaluated against a live server,
-so load the databases too:
+Sources are cloned once into `.dataset_sources/` (gitignored) and reused, so
+re-converting doesn't re-download. Drop `--auto` to point at existing clones,
+and `--load-db` to skip touching Postgres.
 
-```bash
-cd /tmp/defog-data && DBUSER="$(whoami)" PGDATABASE=postgres ./setup.sh
-```
-
-`DBUSER`/`PGDATABASE` are needed on installs where the role is your own
-username rather than `postgres` (the Homebrew default) — the script otherwise
-connects as a `postgres` role to a database of the same name, and fails if
-neither exists. Put matching values in `.env` as `POSTGRES_*`, then:
+`--load-db` **drops and recreates** those 11 databases, and needs a running
+server. It detects the right role automatically — on Homebrew/initdb installs
+that's your own username rather than `postgres`, which `defog-data/setup.sh`
+alone doesn't handle. Put matching values in `.env` as `POSTGRES_*`, then:
 
 ```bash
 python source/code/run_eval.py --dataset defog --backend openrouter \
@@ -87,6 +82,9 @@ python source/code/run_eval.py --dataset defog --backend openrouter \
 
 The database for each question is taken from its `db_id`, so one run covers
 all 11; `--db-name` forces every row at a single database instead.
+
+Running an unprepared dataset exits with the exact command that produces it
+rather than a stack trace.
 
 ## Metrics
 

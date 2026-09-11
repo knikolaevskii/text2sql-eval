@@ -44,3 +44,6 @@ ENV/
 # BIRD mini-dev) and the original conversion scripts. ~5.4GB and contains its
 # own nested git repos, so it stays out of this one.
 previous_work/
+
+# Upstream benchmark repos cloned by prepare_datasets.py --auto
+.dataset_sources/

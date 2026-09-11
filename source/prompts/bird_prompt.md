@@ -11,6 +11,8 @@ query.
 # Database and Table Schema:
 {schemas}
 
+{additional_knowledge}
+
 {instructions}
 
 # Question: {question}

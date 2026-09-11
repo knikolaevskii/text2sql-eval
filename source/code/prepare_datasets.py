@@ -61,10 +61,22 @@ Both are preserved verbatim — the evaluator expands them.
 import argparse
 import csv
 import json
+import os
 import re
 import shutil
+import subprocess
 import sys
+import tarfile
 from pathlib import Path
+
+# Upstream sources, cloned here when --auto is used. Kept outside
+# source/datasets so a re-conversion never re-downloads, and gitignored.
+SOURCES_ROOT = Path(".dataset_sources")
+REPOS = {
+    "wikisql": "https://github.com/salesforce/WikiSQL",
+    "defog-data": "https://github.com/defog-ai/defog-data",
+    "sql-eval": "https://github.com/defog-ai/sql-eval",
+}
 
 OUT_ROOT = Path("source/datasets")
 
@@ -75,6 +87,92 @@ COND_OPS = ["=", ">", "<", "OP"]
 
 SAFE_QUESTION = re.compile(r"^[A-Za-z0-9 .,!?'\"()\[\]{}:;\-]+$")
 NUMBER_RE = re.compile(r"[-+]?\d*\.?\d+")
+
+
+def run(command: list[str], **kwargs) -> subprocess.CompletedProcess:
+    return subprocess.run(command, check=True, **kwargs)
+
+
+def ensure_repo(key: str) -> Path:
+    """Clone an upstream benchmark repo once; reuse it on later runs."""
+    target = SOURCES_ROOT / key
+    if (target / ".git").is_dir():
+        print(f"  [{key}] already cloned at {target}")
+        return target
+    SOURCES_ROOT.mkdir(parents=True, exist_ok=True)
+    print(f"  [{key}] cloning {REPOS[key]} ...")
+    run(["git", "clone", "--depth", "1", REPOS[key], str(target)])
+    return target
+
+
+def ensure_wikisql_data(repo: Path) -> None:
+    """
+    WikiSQL ships its questions, table definitions and prebuilt SQLite files
+    inside data.tar.bz2 rather than checked in, so the archive has to be
+    unpacked before anything can read them.
+    """
+    if (repo / "data" / "test.jsonl").exists():
+        print("  [wikisql] data already unpacked")
+        return
+    archive = repo / "data.tar.bz2"
+    if not archive.exists():
+        sys.exit(f"Expected {archive} in the WikiSQL clone but it is missing.")
+    print("  [wikisql] unpacking data.tar.bz2 ...")
+    with tarfile.open(archive, "r:bz2") as tar:
+        tar.extractall(repo)
+
+
+def postgres_role() -> str:
+    """
+    Pick the role to load Defog's databases with. Homebrew/initdb installs
+    create a role named after the OS user rather than "postgres", which is
+    what defog-data's setup.sh assumes, so prefer whatever is configured and
+    fall back to the OS user.
+    """
+    return os.environ.get("POSTGRES_USER") or os.environ.get("USER") or "postgres"
+
+
+def postgres_reachable(role: str) -> tuple[bool, str]:
+    if not shutil.which("psql"):
+        return False, "psql is not on PATH"
+    probe = subprocess.run(
+        ["psql", "-h", os.environ.get("POSTGRES_HOST", "localhost"),
+         "-p", str(os.environ.get("POSTGRES_PORT", "5432")),
+         "-U", role, "-d", "postgres", "-tAc", "SELECT 1"],
+        capture_output=True, text=True,
+    )
+    if probe.returncode != 0:
+        return False, probe.stderr.strip().splitlines()[-1] if probe.stderr.strip() else "connection failed"
+    return True, ""
+
+
+def load_defog_postgres(defog_data: Path) -> None:
+    """
+    Runs defog-data's own setup.sh, which drops and recreates 11 databases
+    from its .sql dumps.
+
+    Two environment values are forced because the script's first psql call
+    passes neither -d nor a database name: it connects as ${DBUSER:-postgres}
+    to a database of the same name, so on an install whose role is the OS user
+    it fails twice over. PGDATABASE points that call at the maintenance
+    database; DBUSER supplies the role that actually exists.
+    """
+    role = postgres_role()
+    ok, why = postgres_reachable(role)
+    if not ok:
+        sys.exit(
+            f"Cannot reach PostgreSQL as role '{role}': {why}\n"
+            "\n"
+            "Defog's databases are Postgres, so a running server is required.\n"
+            "Start one (e.g. `brew services start postgresql@16`), or skip this\n"
+            "step and run the conversion alone without --load-db."
+        )
+
+    print(f"  [defog] loading 11 databases as role '{role}' (drops and recreates them) ...")
+    env = {**os.environ, "DBUSER": role, "PGDATABASE": "postgres"}
+    run(["bash", "setup.sh"], cwd=defog_data, env=env,
+        stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT)
+    print("  [defog] databases loaded")
 
 
 def table_name_for(table_id: str) -> str:
@@ -231,9 +329,6 @@ def prepare_defog(defog_data: Path, sql_eval: Path, questions_csv: str) -> None:
     print(f"  {len(copied)} schemas copied: {', '.join(copied)}")
     if unknown:
         print(f"  WARNING: questions reference databases with no schema: {unknown}")
-    print()
-    print("  Databases themselves are Postgres. Load them with defog-data's setup.sh,")
-    print("  then set POSTGRES_* in .env and run with --executor postgres.")
 
 
 def main() -> int:
@@ -244,12 +339,25 @@ def main() -> int:
     sub = parser.add_subparsers(dest="dataset", required=True)
 
     wiki = sub.add_parser("wikisql", help="Convert WikiSQL into premsql layout")
-    wiki.add_argument("--source", required=True, type=Path, help="Clone of salesforce/WikiSQL")
+    wiki.add_argument("--source", type=Path, help="Existing clone of salesforce/WikiSQL")
+    wiki.add_argument(
+        "--auto", action="store_true",
+        help="Clone the benchmark and unpack its data automatically",
+    )
     wiki.add_argument("--split", default="test", choices=["test", "dev", "train"])
 
     defog = sub.add_parser("defog", help="Convert Defog into premsql layout")
-    defog.add_argument("--defog-data", required=True, type=Path, help="Clone of defog-ai/defog-data")
-    defog.add_argument("--sql-eval", required=True, type=Path, help="Clone of defog-ai/sql-eval")
+    defog.add_argument("--defog-data", type=Path, help="Existing clone of defog-ai/defog-data")
+    defog.add_argument("--sql-eval", type=Path, help="Existing clone of defog-ai/sql-eval")
+    defog.add_argument(
+        "--auto", action="store_true",
+        help="Clone both benchmark repos automatically",
+    )
+    defog.add_argument(
+        "--load-db", action="store_true",
+        help="Also load the 11 Postgres databases via defog-data's setup.sh. "
+             "Requires a running server; DROPS AND RECREATES those databases.",
+    )
     defog.add_argument(
         "--questions-csv",
         default="questions_gen_postgres.csv",
@@ -258,10 +366,36 @@ def main() -> int:
     )
 
     args = parser.parse_args()
+
     if args.dataset == "wikisql":
-        prepare_wikisql(args.source, args.split)
+        if not args.source and not args.auto:
+            sys.exit("Pass --source <clone of WikiSQL>, or --auto to fetch it.")
+        source = args.source
+        if args.auto and not source:
+            print("fetching sources")
+            source = ensure_repo("wikisql")
+        ensure_wikisql_data(source)
+        print()
+        prepare_wikisql(source, args.split)
+        return 0
+
+    if not (args.defog_data and args.sql_eval) and not args.auto:
+        sys.exit("Pass --defog-data and --sql-eval, or --auto to fetch them.")
+    defog_data, sql_eval = args.defog_data, args.sql_eval
+    if args.auto:
+        print("fetching sources")
+        defog_data = defog_data or ensure_repo("defog-data")
+        sql_eval = sql_eval or ensure_repo("sql-eval")
+        print()
+    prepare_defog(defog_data, sql_eval, args.questions_csv)
+    print()
+    if args.load_db:
+        load_defog_postgres(defog_data)
+        print()
+        print("  Set POSTGRES_* in .env, then run with --executor postgres.")
     else:
-        prepare_defog(args.defog_data, args.sql_eval, args.questions_csv)
+        print("  The databases themselves are Postgres and were not loaded.")
+        print("  Re-run with --load-db, or load them yourself via defog-data/setup.sh.")
     return 0
 
 

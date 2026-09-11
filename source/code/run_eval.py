@@ -72,6 +72,26 @@ class DatasetSpec:
     # than the default (test fixtures, a scratch copy, an external drive).
     setup_kwargs: dict = field(default_factory=dict)
 
+    # Generator class used for the OpenAI-compatible backends (hf, lmstudio,
+    # runpod). A dataset can require a specialised one: WikiSQL's gold queries
+    # lowercase their string literals, so predictions need the same treatment
+    # before they can match.
+    api_generator: type = Text2SQLGeneratorAPI
+
+    # SQL dialect the model should be told to write. None means "follow the
+    # executor" (sqlite, or postgresql when running against Postgres). A
+    # dataset pins this only when its dialect is a property of the data rather
+    # than of where the query runs.
+    dialect: Optional[str] = None
+
+    # Files that must already exist, for datasets that have no downloader.
+    # Empty means the dataset fetches itself on first use. Paths may reference
+    # {dataset_folder}. `setup_hint` is shown when something is missing, since
+    # the alternative is a ValueError raised from inside the library with no
+    # indication of which command produces the data.
+    required_files: tuple = ()
+    setup_hint: str = ""
+
     def resolved_setup_kwargs(self, dataset_folder: str) -> dict:
         return {
             key: value.format(dataset_folder=dataset_folder)
@@ -105,6 +125,18 @@ DATASETS: dict[str, DatasetSpec] = {
     "defog": DatasetSpec(
         split="questions_gen",
         prompt_template="defog_prompt.md",
+        required_files=(
+            "{dataset_folder}/defog/questions_gen.json",
+            "{dataset_folder}/defog/database",
+        ),
+        setup_hint=(
+            "Defog has no downloader. Fetch, convert, and load its 11 Postgres\n"
+            "databases in one step (needs a running server):\n"
+            "    python source/code/prepare_datasets.py defog --auto --load-db\n"
+            "\n"
+            "Then set POSTGRES_* in .env and run with --executor postgres.\n"
+            "Drop --load-db to convert the questions without touching Postgres."
+        ),
     ),
     "wikisql": DatasetSpec(
         split="test",
@@ -112,6 +144,17 @@ DATASETS: dict[str, DatasetSpec] = {
         # WikiSQL ships one combined SQLite file rather than a database per
         # db_id, so every row's db_path is redirected at it.
         setup_kwargs={"custom_db_path": "{dataset_folder}/wikisql/database/test.db"},
+        api_generator=WikiSQLText2SQLGeneratorAPI,
+        dialect="wikisql",
+        required_files=(
+            "{dataset_folder}/wikisql/test.json",
+            "{dataset_folder}/wikisql/test_wiki_sql_metadata.json",
+            "{dataset_folder}/wikisql/database/test.db",
+        ),
+        setup_hint=(
+            "WikiSQL has no downloader. Fetch and convert it in one step:\n"
+            "    python source/code/prepare_datasets.py wikisql --auto"
+        ),
     ),
 }
 
@@ -154,24 +197,51 @@ def slugify(value: str) -> str:
     return re.sub(r"[^A-Za-z0-9._-]+", "-", value).strip("-")
 
 
-def build_generator(args, dataset_spec: DatasetSpec, experiment_name: str):
+def check_dataset_available(name: str, spec: DatasetSpec, dataset_folder: str) -> None:
+    """
+    Fail early and usefully for the datasets that have no downloader.
+
+    Without this the run dies part-way through with a ValueError raised inside
+    the library ("Defog dataset not found"), which says nothing about the
+    command that produces the data. Bird and Spider fetch themselves, so they
+    declare no required files and skip this entirely.
+    """
+    missing = [
+        path
+        for path in (p.format(dataset_folder=dataset_folder) for p in spec.required_files)
+        if not Path(path).exists()
+    ]
+    if not missing:
+        return
+
+    lines = [f"Dataset '{name}' is not prepared in {dataset_folder}/", "", "Missing:"]
+    lines += [f"  {path}" for path in missing]
+    if spec.setup_hint:
+        lines += ["", spec.setup_hint]
+    sys.exit("\n".join(lines))
+
+
+EXECUTOR_DIALECTS = {"sqlite": "sqlite", "postgres": "postgresql"}
+
+
+def resolve_dialect(spec: DatasetSpec, executor: str) -> str:
+    """
+    Which SQL dialect the model is told to write. A dataset pins this when the
+    dialect belongs to the data itself; otherwise it follows the executor the
+    query will actually run against.
+    """
+    return spec.dialect or EXECUTOR_DIALECTS[executor]
+
+
+def build_generator(args, spec: DatasetSpec, experiment_name: str):
     backend = BACKENDS[args.backend]
 
     if backend.kind == "openrouter":
-        # The system prompt is chosen by dialect: WikiSQL needs the
-        # lowercase-literals/col0-style instructions, Postgres runs need
-        # Postgres syntax rather than SQLite.
-        if args.dataset == "wikisql":
-            db_type = "wikisql"
-        elif args.executor == "postgres":
-            db_type = "postgresql"
-        else:
-            db_type = "sqlite"
         return Text2SQLGeneratorOpenRouter(
             model_name=args.model,
             experiment_name=experiment_name,
             type=args.experiment_type,
-            data_base_type=db_type,
+            data_base_type=resolve_dialect(spec, args.executor),
         )
 
     if backend.kind == "local":
@@ -182,13 +252,8 @@ def build_generator(args, dataset_spec: DatasetSpec, experiment_name: str):
             device=args.device,
         )
 
-    # Generic OpenAI-compatible endpoint. WikiSQL gets the subclass that also
-    # lowercases quoted string literals, matching how its gold queries are
-    # written.
-    generator_cls = (
-        WikiSQLText2SQLGeneratorAPI if args.dataset == "wikisql" else Text2SQLGeneratorAPI
-    )
-    return generator_cls(
+    # Generic OpenAI-compatible endpoint (hf, lmstudio, runpod).
+    return spec.api_generator(
         model_name=args.model,
         experiment_name=experiment_name,
         type=args.experiment_type,
@@ -297,6 +362,8 @@ def main(argv=None) -> int:
     ]:
         print(f"  {key:12} {value}")
     print()
+
+    check_dataset_available(args.dataset, spec, args.dataset_folder)
 
     dataset = Text2SQLDataset(
         dataset_name=args.dataset,
